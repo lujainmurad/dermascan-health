@@ -14,7 +14,135 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      appointments: {
+        Row: {
+          appointment_date: string
+          clinician_id: string
+          created_at: string
+          id: string
+          notes: string | null
+          patient_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          appointment_date: string
+          clinician_id: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          patient_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          appointment_date?: string
+          clinician_id?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          patient_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      cases: {
+        Row: {
+          clinician_id: string | null
+          confidence: number | null
+          created_at: string
+          features_summary: Json | null
+          id: string
+          image_url: string | null
+          notes: string | null
+          overlay_image_url: string | null
+          patient_id: string
+          prediction_label: string | null
+          recommendation: string | null
+          status: string | null
+          updated_at: string
+        }
+        Insert: {
+          clinician_id?: string | null
+          confidence?: number | null
+          created_at?: string
+          features_summary?: Json | null
+          id?: string
+          image_url?: string | null
+          notes?: string | null
+          overlay_image_url?: string | null
+          patient_id: string
+          prediction_label?: string | null
+          recommendation?: string | null
+          status?: string | null
+          updated_at?: string
+        }
+        Update: {
+          clinician_id?: string | null
+          confidence?: number | null
+          created_at?: string
+          features_summary?: Json | null
+          id?: string
+          image_url?: string | null
+          notes?: string | null
+          overlay_image_url?: string | null
+          patient_id?: string
+          prediction_label?: string | null
+          recommendation?: string | null
+          status?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          city: string | null
+          created_at: string
+          email: string | null
+          full_name: string | null
+          hospital_name: string | null
+          id: string
+          phone: string | null
+          role: Database["public"]["Enums"]["app_role"]
+          specialty: string | null
+          updated_at: string
+          user_id: string
+          verified: boolean | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          city?: string | null
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          hospital_name?: string | null
+          id?: string
+          phone?: string | null
+          role: Database["public"]["Enums"]["app_role"]
+          specialty?: string | null
+          updated_at?: string
+          user_id: string
+          verified?: boolean | null
+        }
+        Update: {
+          avatar_url?: string | null
+          city?: string | null
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          hospital_name?: string | null
+          id?: string
+          phone?: string | null
+          role?: Database["public"]["Enums"]["app_role"]
+          specialty?: string | null
+          updated_at?: string
+          user_id?: string
+          verified?: boolean | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -23,7 +151,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      app_role: "patient" | "clinician"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +278,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["patient", "clinician"],
+    },
   },
 } as const
