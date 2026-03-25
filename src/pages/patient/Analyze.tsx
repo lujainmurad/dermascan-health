@@ -7,13 +7,12 @@ import { useToast } from '@/hooks/use-toast';
 import { Camera, Upload, Loader2, AlertTriangle, CheckCircle, Calendar } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://supreme-space-meme-x5wgrj6ppwr739qr4-8000.app.github.dev';
 
 interface AnalysisResult {
-  prediction: string;
+  risk_level: string;
   confidence: number;
   recommendation: string;
-  high_risk: boolean;
 }
 
 const PatientAnalyze = () => {
