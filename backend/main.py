@@ -86,3 +86,45 @@ async def analyze_patient(image: UploadFile = File(...)):
 if __name__=="__main__":
     import uvicorn
     uvicorn.run("main:app",host="0.0.0.0",port=8000,reload=True)
+
+# =============================================================================
+# SPECIALISTS ENDPOINT
+# =============================================================================
+import math as _math
+import json as _json
+from pathlib import Path as _Path
+
+def _haversine(lat1, lng1, lat2, lng2):
+    R = 6371
+    dlat = _math.radians(lat2 - lat1)
+    dlng = _math.radians(lng2 - lng1)
+    a = _math.sin(dlat/2)**2 + _math.cos(_math.radians(lat1)) * _math.cos(_math.radians(lat2)) * _math.sin(dlng/2)**2
+    return round(R * 2 * _math.asin(_math.sqrt(a)), 2)
+
+_SPECIALISTS_CACHE = None
+
+def _load_specialists():
+    global _SPECIALISTS_CACHE
+    if _SPECIALISTS_CACHE is None:
+        cache_path = _Path(__file__).parent / "specialists_cache.json"
+        if cache_path.exists():
+            with open(cache_path, encoding="utf-8") as f:
+                _SPECIALISTS_CACHE = _json.load(f)
+        else:
+            _SPECIALISTS_CACHE = []
+    return _SPECIALISTS_CACHE
+
+@app.get("/specialists")
+def get_specialists(lat: float = 31.9539, lng: float = 35.9106):
+    """
+    Returns specialists sorted by distance from patient location.
+    Defaults to Amman city center if no coordinates provided.
+    """
+    specialists = _load_specialists()
+    results = []
+    for s in specialists:
+        if s.get("lat") and s.get("lng"):
+            dist = _haversine(lat, lng, s["lat"], s["lng"])
+            results.append({**s, "distance_km": dist})
+    results.sort(key=lambda x: x["distance_km"])
+    return {"specialists": results, "total": len(results), "patient_lat": lat, "patient_lng": lng}
