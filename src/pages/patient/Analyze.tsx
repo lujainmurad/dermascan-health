@@ -59,10 +59,10 @@ const PatientAnalyze = () => {
       // Save case to Supabase
       const { error } = await supabase.from('cases').insert({
         patient_id: user.id,
-        prediction_label: data.prediction,
+        prediction_label: data.risk_level,
         confidence: data.confidence,
         recommendation: data.recommendation,
-        status: data.high_risk ? 'high_risk' : 'low_risk',
+        status: data.risk_level?.toLowerCase().includes('high') ? 'high_risk' : 'low_risk',
       });
       if (error) console.error('Failed to save case:', error);
     } catch (err: any) {
@@ -127,28 +127,35 @@ const PatientAnalyze = () => {
 
           {result && (
             <div className="mt-6 space-y-4">
-              <div className={`rounded-xl p-5 ${result.high_risk ? 'bg-destructive/10 border border-destructive/20' : 'bg-success/10 border border-success/20'}`}>
-                <div className="flex items-center gap-3 mb-3">
-                  {result.high_risk ? (
-                    <AlertTriangle className="h-6 w-6 text-destructive" />
-                  ) : (
-                    <CheckCircle className="h-6 w-6 text-success" />
-                  )}
-                  <div>
-                    <p className="font-display font-semibold text-foreground">{result.prediction}</p>
-                    <p className="text-sm text-muted-foreground">Confidence: {(result.confidence * 100).toFixed(1)}%</p>
-                  </div>
-                </div>
-                <p className="text-sm text-foreground">{result.recommendation}</p>
-              </div>
+              {(() => {
+                const isHighRisk = result.risk_level?.toLowerCase().includes('high');
+                return (
+                  <>
+                    <div className={`rounded-xl p-5 ${isHighRisk ? 'bg-destructive/10 border border-destructive/20' : 'bg-success/10 border border-success/20'}`}>
+                      <div className="flex items-center gap-3 mb-3">
+                        {isHighRisk ? (
+                          <AlertTriangle className="h-6 w-6 text-destructive" />
+                        ) : (
+                          <CheckCircle className="h-6 w-6 text-success" />
+                        )}
+                        <div>
+                          <p className="font-display font-semibold text-foreground">{result.risk_level}</p>
+                          <p className="text-sm text-muted-foreground">Confidence: {(result.confidence * 100).toFixed(1)}%</p>
+                        </div>
+                      </div>
+                      <p className="text-sm text-foreground">{result.recommendation}</p>
+                    </div>
 
-              {result.high_risk && (
-                <Button asChild className="w-full" size="lg">
-                  <Link to="/patient/find-specialist">
-                    <Calendar className="mr-2 h-4 w-4" /> Book an Appointment
-                  </Link>
-                </Button>
-              )}
+                    {isHighRisk && (
+                      <Button asChild className="w-full" size="lg">
+                        <Link to="/patient/find-specialist">
+                          <Calendar className="mr-2 h-4 w-4" /> Book an Appointment
+                        </Link>
+                      </Button>
+                    )}
+                  </>
+                );
+              })()}
             </div>
           )}
         </div>
