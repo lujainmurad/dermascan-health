@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import Navbar from '@/components/Navbar';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -14,6 +13,7 @@ import { Loader2, CheckCircle, CalendarIcon } from 'lucide-react';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
+import AppLayout from '@/components/layouts/AppLayout';
 
 interface Clinician {
   user_id: string;
@@ -54,7 +54,6 @@ const BookAppointment = () => {
     fetchClinicians();
   }, []);
 
-  // Fetch availability for selected clinician
   useEffect(() => {
     if (!selectedClinician) { setAvailability([]); return; }
     supabase.from('clinician_availability').select('start_time, end_time, day_of_week').eq('clinician_id', selectedClinician).then(({ data }) => {
@@ -62,16 +61,12 @@ const BookAppointment = () => {
     });
   }, [selectedClinician]);
 
-  // When date changes, fetch booked slots
   useEffect(() => {
     if (!date || !selectedClinician) { setBookedSlots([]); return; }
     setLoadingSlots(true);
     setSelectedSlot(null);
-    const dayStart = new Date(date);
-    dayStart.setHours(0, 0, 0, 0);
-    const dayEnd = new Date(date);
-    dayEnd.setHours(23, 59, 59, 999);
-
+    const dayStart = new Date(date); dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date(date); dayEnd.setHours(23, 59, 59, 999);
     supabase.from('appointments')
       .select('appointment_date')
       .eq('clinician_id', selectedClinician)
@@ -84,27 +79,20 @@ const BookAppointment = () => {
       });
   }, [date, selectedClinician]);
 
-  // Generate available slots for the selected date
   const generateSlots = (): { time: string; iso: string; booked: boolean }[] => {
     if (!date) return [];
     const dayOfWeek = date.getDay();
     const dayAvail = availability.filter(a => a.day_of_week === dayOfWeek);
     if (dayAvail.length === 0) return [];
-
     const slots: { time: string; iso: string; booked: boolean }[] = [];
     dayAvail.forEach(a => {
       const startHour = parseInt(a.start_time.split(':')[0]);
       const endHour = parseInt(a.end_time.split(':')[0]);
       for (let h = startHour; h < endHour; h++) {
-        const slotDate = new Date(date);
-        slotDate.setHours(h, 0, 0, 0);
+        const slotDate = new Date(date); slotDate.setHours(h, 0, 0, 0);
         const iso = slotDate.toISOString();
         const booked = bookedSlots.some(b => new Date(b).getHours() === h);
-        slots.push({
-          time: `${h.toString().padStart(2, '0')}:00`,
-          iso,
-          booked,
-        });
+        slots.push({ time: `${h.toString().padStart(2, '0')}:00`, iso, booked });
       }
     });
     return slots;
@@ -114,7 +102,6 @@ const BookAppointment = () => {
     e.preventDefault();
     if (!user || !selectedClinician || !selectedSlot) return;
     setLoading(true);
-
     const { error, data: insertData } = await supabase.from('appointments').insert({
       patient_id: user.id,
       clinician_id: selectedClinician,
@@ -128,7 +115,6 @@ const BookAppointment = () => {
       return;
     }
 
-    // Send email notification to clinician
     const clinician = clinicians.find(c => c.user_id === selectedClinician);
     if (clinician?.email && insertData?.id) {
       const slotDate = new Date(selectedSlot);
@@ -144,7 +130,7 @@ const BookAppointment = () => {
             notes: notes || 'No additional notes',
           },
         },
-      }).catch(() => {}); // fire-and-forget
+      }).catch(() => {});
     }
 
     setLoading(false);
@@ -152,40 +138,35 @@ const BookAppointment = () => {
   };
 
   const slots = generateSlots();
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  // Determine which days of week have availability
+  const today = new Date(); today.setHours(0, 0, 0, 0);
   const availableDays = new Set(availability.map(a => a.day_of_week));
   const isDateDisabled = (d: Date) => {
     if (d < today) return true;
     return !availableDays.has(d.getDay());
   };
 
-  if (loadingClinicians) return <div className="min-h-screen bg-background"><Navbar /><LoadingSpinner /></div>;
+  if (loadingClinicians) return <AppLayout><LoadingSpinner /></AppLayout>;
 
   if (confirmed) {
     return (
-      <div className="min-h-screen bg-background">
-        <Navbar />
-        <div className="container mx-auto px-4 py-16 text-center">
-          <div className="w-16 h-16 rounded-full bg-success/10 flex items-center justify-center mx-auto mb-6">
-            <CheckCircle className="h-8 w-8 text-success" />
+      <AppLayout>
+        <div className="max-w-md mx-auto py-16 text-center">
+          <div className="w-14 h-14 rounded-full bg-success/10 flex items-center justify-center mx-auto mb-6">
+            <CheckCircle className="h-7 w-7 text-success" />
           </div>
-          <h1 className="text-2xl font-display font-bold text-foreground mb-3">Appointment Booked!</h1>
-          <p className="text-muted-foreground mb-6">Your appointment has been scheduled. The clinician will confirm it shortly.</p>
+          <h1 className="text-2xl font-display font-bold text-foreground mb-3 tracking-tight">Appointment Booked!</h1>
+          <p className="text-muted-foreground text-sm mb-6">Your appointment has been scheduled. The clinician will confirm it shortly.</p>
           <Button onClick={() => navigate('/patient/appointments')}>View My Appointments</Button>
         </div>
-      </div>
+      </AppLayout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <Navbar />
-      <div className="container mx-auto px-4 py-8 max-w-lg">
-        <h1 className="text-2xl font-display font-bold text-foreground mb-6">Book an Appointment</h1>
-        <form onSubmit={handleSubmit} className="medical-card p-6 space-y-5">
+    <AppLayout>
+      <div className="max-w-lg">
+        <h1 className="text-2xl font-display font-bold text-foreground mb-6 tracking-tight">Book an Appointment</h1>
+        <form onSubmit={handleSubmit} className="clinical-card p-6 space-y-5">
           <div className="space-y-2">
             <Label>Select Clinician</Label>
             <Select value={selectedClinician} onValueChange={(v) => { setSelectedClinician(v); setDate(undefined); setSelectedSlot(null); }}>
@@ -215,14 +196,7 @@ const BookAppointment = () => {
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={date}
-                    onSelect={setDate}
-                    disabled={isDateDisabled}
-                    initialFocus
-                    className={cn("p-3 pointer-events-auto")}
-                  />
+                  <Calendar mode="single" selected={date} onSelect={setDate} disabled={isDateDisabled} initialFocus className={cn("p-3 pointer-events-auto")} />
                 </PopoverContent>
               </Popover>
             </div>
@@ -264,7 +238,7 @@ const BookAppointment = () => {
           </Button>
         </form>
       </div>
-    </div>
+    </AppLayout>
   );
 };
 

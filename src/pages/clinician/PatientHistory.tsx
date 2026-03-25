@@ -2,14 +2,14 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import Navbar from '@/components/Navbar';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import EmptyState from '@/components/EmptyState';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, Calendar, FileText, Download } from 'lucide-react';
+import { ArrowLeft, Calendar, FileText, Download, ScanSearch } from 'lucide-react';
 import { format } from 'date-fns';
+import AppLayout from '@/components/layouts/AppLayout';
 
 const statusColors: Record<string, string> = {
   pending: 'bg-warning/10 text-warning border-warning/20',
@@ -63,34 +63,43 @@ const PatientHistory = () => {
     link.click();
   };
 
-  if (loading) return <div className="min-h-screen bg-background"><Navbar /><LoadingSpinner /></div>;
+  if (loading) return <AppLayout><LoadingSpinner /></AppLayout>;
 
   return (
-    <div className="min-h-screen bg-background">
-      <Navbar />
-      <div className="container mx-auto px-4 py-8 max-w-4xl">
-        <Button variant="ghost" onClick={() => navigate('/clinician/appointments')} className="mb-4">
+    <AppLayout>
+      <div className="max-w-4xl">
+        <Button variant="ghost" onClick={() => navigate('/clinician/appointments')} className="mb-4 -ml-2">
           <ArrowLeft className="h-4 w-4 mr-2" /> Back to Appointments
         </Button>
 
         {/* Patient Header */}
-        <div className="medical-card p-6 mb-6">
-          <h1 className="text-2xl font-display font-bold text-foreground">{patient?.full_name || 'Unknown Patient'}</h1>
-          <p className="text-sm text-muted-foreground">{patient?.email}</p>
-          {patient?.phone && <p className="text-sm text-muted-foreground">{patient.phone}</p>}
-          {patient?.city && <p className="text-sm text-muted-foreground">{patient.city}</p>}
+        <div className="clinical-card p-6 mb-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-display font-bold text-foreground tracking-tight">{patient?.full_name || 'Unknown Patient'}</h1>
+              <p className="text-sm text-muted-foreground">{patient?.email}</p>
+              {patient?.phone && <p className="text-sm text-muted-foreground">{patient.phone}</p>}
+              {patient?.city && <p className="text-sm text-muted-foreground">{patient.city}</p>}
+            </div>
+            <Button
+              onClick={() => navigate(`/clinician/analyze?patientId=${patientId}&patientName=${encodeURIComponent(patient?.full_name || 'Patient')}`)}
+              size="sm"
+            >
+              <ScanSearch className="h-4 w-4 mr-2" /> Analyze New Image
+            </Button>
+          </div>
         </div>
 
         {/* Appointments Section */}
-        <h2 className="text-lg font-display font-semibold text-foreground mb-3 flex items-center gap-2">
-          <Calendar className="h-5 w-5 text-primary" /> Appointment History
+        <h2 className="text-base font-display font-semibold text-foreground mb-3 flex items-center gap-2">
+          <Calendar className="h-4 w-4 text-primary" /> Appointment History
         </h2>
         {appointments.length === 0 ? (
           <EmptyState icon={Calendar} title="No appointments" description="No appointment history with this patient." />
         ) : (
           <div className="space-y-2 mb-8">
             {appointments.map(a => (
-              <div key={a.id} className="medical-card p-4 flex items-center justify-between">
+              <div key={a.id} className="clinical-card p-4 flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-foreground">{format(new Date(a.appointment_date), 'PPP p')}</p>
                   {a.notes && <p className="text-xs text-muted-foreground mt-1">{a.notes}</p>}
@@ -102,8 +111,8 @@ const PatientHistory = () => {
         )}
 
         {/* Cases Section */}
-        <h2 className="text-lg font-display font-semibold text-foreground mb-3 flex items-center gap-2">
-          <FileText className="h-5 w-5 text-primary" /> Analysis Cases
+        <h2 className="text-base font-display font-semibold text-foreground mb-3 flex items-center gap-2">
+          <FileText className="h-4 w-4 text-primary" /> Analysis Cases
         </h2>
         {cases.length === 0 ? (
           <EmptyState icon={FileText} title="No cases" description="No analysis cases linked to this patient." />
@@ -115,38 +124,36 @@ const PatientHistory = () => {
                 <Card key={c.id}>
                   <CardHeader className="pb-3">
                     <div className="flex items-center justify-between">
-                      <CardTitle className="text-base">
+                      <CardTitle className="text-sm font-display">
                         {c.prediction_label || 'Analysis'} — {format(new Date(c.created_at), 'PPP')}
                       </CardTitle>
                       {c.confidence != null && (
-                        <span className="text-sm text-muted-foreground">Confidence: {(c.confidence * 100).toFixed(1)}%</span>
+                        <span className="text-xs text-muted-foreground">Confidence: {(c.confidence * 100).toFixed(1)}%</span>
                       )}
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    {/* Images */}
                     <div className="grid md:grid-cols-2 gap-4">
                       {c.image_url && (
                         <div>
-                          <p className="text-xs font-medium text-muted-foreground mb-1">Original Image</p>
+                          <p className="text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wider">Original</p>
                           <img src={c.image_url} alt="Original" className="rounded-lg w-full object-contain bg-muted max-h-64" />
                         </div>
                       )}
                       {c.overlay_image_url && (
                         <div>
-                          <p className="text-xs font-medium text-muted-foreground mb-1">Segmentation Overlay</p>
+                          <p className="text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wider">Segmentation</p>
                           <img src={c.overlay_image_url} alt="Overlay" className="rounded-lg w-full object-contain bg-muted max-h-64" />
                         </div>
                       )}
                     </div>
 
-                    {/* Feature Summary */}
                     {summary && (
                       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
                         {Object.entries(featureLabels).map(([key, label]) => (
                           summary[key] != null && (
                             <div key={key} className="rounded-lg bg-muted p-2 text-center">
-                              <p className="text-xs text-muted-foreground">{label}</p>
+                              <p className="text-[10px] text-muted-foreground">{label}</p>
                               <p className="font-semibold text-sm text-foreground">{Number(summary[key]).toFixed(3)}</p>
                             </div>
                           )
@@ -154,7 +161,6 @@ const PatientHistory = () => {
                       </div>
                     )}
 
-                    {/* Download Report */}
                     {c.report_pdf ? (
                       <Button variant="outline" size="sm" onClick={() => downloadReport(c.report_pdf, c.created_at)}>
                         <Download className="h-4 w-4 mr-2" /> Download Report
@@ -171,7 +177,7 @@ const PatientHistory = () => {
           </div>
         )}
       </div>
-    </div>
+    </AppLayout>
   );
 };
 

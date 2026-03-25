@@ -1,14 +1,13 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import Navbar from '@/components/Navbar';
 import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Upload, Loader2, AlertTriangle, Download, Save } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { format } from 'date-fns';
+import AppLayout from '@/components/layouts/AppLayout';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://supreme-space-meme-x5wgrj6ppwr739qr4-8000.app.github.dev';
 
@@ -35,12 +34,6 @@ interface AnalysisResult {
   report_ready?: boolean;
 }
 
-interface PatientOption {
-  user_id: string;
-  full_name: string | null;
-  email: string | null;
-}
-
 const featureLabels: Record<keyof FeatureSummary, string> = {
   asymmetry: 'Asymmetry',
   border_irregularity: 'Border Irregularity',
@@ -57,6 +50,10 @@ const featureLabels: Record<keyof FeatureSummary, string> = {
 const ClinicianAnalyze = () => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const [searchParams] = useSearchParams();
+  const patientId = searchParams.get('patientId');
+  const patientName = searchParams.get('patientName') || 'Patient';
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [image, setImage] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
@@ -64,21 +61,6 @@ const ClinicianAnalyze = () => {
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-
-  // Patient selector
-  const [patients, setPatients] = useState<PatientOption[]>([]);
-  const [selectedPatient, setSelectedPatient] = useState<string>('');
-
-  useEffect(() => {
-    if (!user) return;
-    // Fetch unique patients from this clinician's appointments
-    supabase.from('appointments').select('patient_id').eq('clinician_id', user.id).then(async ({ data }) => {
-      const ids = [...new Set((data || []).map((a: any) => a.patient_id))];
-      if (ids.length === 0) return;
-      const { data: profiles } = await supabase.from('profiles').select('user_id, full_name, email').in('user_id', ids);
-      setPatients((profiles as PatientOption[]) || []);
-    });
-  }, [user]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -101,7 +83,6 @@ const ClinicianAnalyze = () => {
     try {
       const formData = new FormData();
       formData.append('image', image);
-
       const response = await fetch(`${BACKEND_URL}/analyze/clinician`, { method: 'POST', body: formData });
       if (!response.ok) throw new Error('Analysis failed');
       const data: AnalysisResult = await response.json();
@@ -114,21 +95,19 @@ const ClinicianAnalyze = () => {
   };
 
   const handleSaveCase = async () => {
-    if (!result || !user || !image || !selectedPatient) return;
+    if (!result || !user || !image || !patientId) return;
     setSaving(true);
 
     try {
-      // Upload original image
       const fileName = `${user.id}/${Date.now()}_${image.name}`;
       const { error: uploadError } = await supabase.storage.from('case-images').upload(fileName, image);
       if (uploadError) throw uploadError;
 
       const { data: { publicUrl } } = supabase.storage.from('case-images').getPublicUrl(fileName);
 
-      // Insert case
       const { error: insertError } = await supabase.from('cases').insert({
         clinician_id: user.id,
-        patient_id: selectedPatient,
+        patient_id: patientId,
         image_url: publicUrl,
         overlay_image_url: result.overlay_image || null,
         prediction_label: result.prediction,
@@ -139,7 +118,6 @@ const ClinicianAnalyze = () => {
       });
 
       if (insertError) throw insertError;
-
       setSaved(true);
       toast({ title: 'Case saved', description: 'Analysis results have been saved to the patient record.' });
     } catch (err: any) {
@@ -159,11 +137,16 @@ const ClinicianAnalyze = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <Navbar />
-      <div className="container mx-auto px-4 py-8 max-w-4xl">
-        <h1 className="text-2xl font-display font-bold text-foreground mb-2">Image Analysis</h1>
-        <p className="text-muted-foreground mb-6">Upload a dermoscopy image for AI-powered segmentation analysis.</p>
+    <AppLayout>
+      <div className="max-w-4xl">
+        <div className="mb-6">
+          <h1 className="text-2xl font-display font-bold text-foreground tracking-tight">Image Analysis</h1>
+          {patientId && (
+            <p className="text-sm text-muted-foreground mt-1">
+              Analyzing for <span className="font-medium text-foreground">{patientName}</span>
+            </p>
+          )}
+        </div>
 
         {!BACKEND_URL && (
           <div className="rounded-lg border border-warning/30 bg-warning/5 p-4 flex gap-3 mb-6">
@@ -175,12 +158,12 @@ const ClinicianAnalyze = () => {
           </div>
         )}
 
-        <div className="medical-card p-6">
+        <div className="clinical-card p-6">
           {!preview ? (
             <div className="border-2 border-dashed border-border rounded-xl p-12 text-center cursor-pointer hover:border-primary/50 transition-colors"
               onClick={() => fileInputRef.current?.click()}>
               <Upload className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <p className="text-muted-foreground mb-2">Click to upload a dermoscopy image</p>
+              <p className="text-muted-foreground text-sm mb-2">Click to upload a dermoscopy image</p>
               <p className="text-xs text-muted-foreground">JPG, PNG accepted</p>
               <input ref={fileInputRef} type="file" accept="image/jpeg,image/png" onChange={handleFileSelect} className="hidden" />
             </div>
@@ -189,11 +172,11 @@ const ClinicianAnalyze = () => {
               {result ? (
                 <div className="grid md:grid-cols-2 gap-4">
                   <div>
-                    <p className="text-sm font-medium text-muted-foreground mb-2">Original Image</p>
+                    <p className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wider">Original</p>
                     <img src={preview} alt="Original" className="rounded-lg w-full object-contain bg-muted" />
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-muted-foreground mb-2">Segmentation Overlay</p>
+                    <p className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wider">Segmentation</p>
                     <img src={result.overlay_image} alt="Segmentation overlay" className="rounded-lg w-full object-contain bg-muted" />
                   </div>
                 </div>
@@ -228,14 +211,14 @@ const ClinicianAnalyze = () => {
                   {result.feature_summary && (
                     <Card>
                       <CardHeader className="pb-3">
-                        <CardTitle className="text-lg">Feature Summary</CardTitle>
+                        <CardTitle className="text-base">Feature Summary</CardTitle>
                       </CardHeader>
                       <CardContent>
                         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
                           {(Object.keys(featureLabels) as (keyof FeatureSummary)[]).map((key) => (
                             <div key={key} className="rounded-lg bg-muted p-3 text-center">
                               <p className="text-xs text-muted-foreground mb-1">{featureLabels[key]}</p>
-                              <p className="font-semibold text-foreground">
+                              <p className="font-semibold text-foreground text-sm">
                                 {typeof result.feature_summary![key] === 'number'
                                   ? result.feature_summary![key].toFixed(3)
                                   : String(result.feature_summary![key])}
@@ -247,35 +230,14 @@ const ClinicianAnalyze = () => {
                     </Card>
                   )}
 
-                  {/* Save Case Section */}
-                  <Card>
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-lg">Save to Patient Record</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      <div className="space-y-2">
-                        <Label>Link to Patient</Label>
-                        <Select value={selectedPatient} onValueChange={setSelectedPatient}>
-                          <SelectTrigger><SelectValue placeholder="Select a patient" /></SelectTrigger>
-                          <SelectContent>
-                            {patients.map(p => (
-                              <SelectItem key={p.user_id} value={p.user_id}>
-                                {p.full_name || p.email || 'Unknown'}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        {patients.length === 0 && (
-                          <p className="text-xs text-muted-foreground">No patients found. Patients appear here after booking appointments with you.</p>
-                        )}
-                      </div>
-                      <Button onClick={handleSaveCase} disabled={saving || saved || !selectedPatient} className="w-full">
-                        {saving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</>
-                          : saved ? <><Save className="mr-2 h-4 w-4" /> Saved</>
-                          : <><Save className="mr-2 h-4 w-4" /> Save Case</>}
-                      </Button>
-                    </CardContent>
-                  </Card>
+                  {/* Save Case */}
+                  {patientId && (
+                    <Button onClick={handleSaveCase} disabled={saving || saved} className="w-full">
+                      {saving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</>
+                        : saved ? <><Save className="mr-2 h-4 w-4" /> Saved</>
+                        : <><Save className="mr-2 h-4 w-4" /> Save Case</>}
+                    </Button>
+                  )}
 
                   {result.report_ready && result.report_pdf ? (
                     <Button variant="outline" className="w-full" onClick={downloadReport}>
@@ -292,7 +254,7 @@ const ClinicianAnalyze = () => {
           )}
         </div>
       </div>
-    </div>
+    </AppLayout>
   );
 };
 

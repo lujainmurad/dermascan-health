@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import Navbar from '@/components/Navbar';
 import EmptyState from '@/components/EmptyState';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { Badge } from '@/components/ui/badge';
@@ -9,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Calendar, X } from 'lucide-react';
 import { format } from 'date-fns';
+import AppLayout from '@/components/layouts/AppLayout';
 
 const statusColors: Record<string, string> = {
   pending: 'bg-warning/10 text-warning border-warning/20',
@@ -57,39 +57,32 @@ const PatientAppointments = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <Navbar />
-      <div className="container mx-auto px-4 py-8">
-        <h1 className="text-2xl font-display font-bold text-foreground mb-6">My Appointments</h1>
-        {loading ? <LoadingSpinner /> : appointments.length === 0 ? (
-          <EmptyState icon={Calendar} title="No appointments" description="You haven't booked any appointments yet." />
-        ) : (
-          <div className="space-y-3">
-            {appointments.map(a => (
-              <div key={a.id} className="medical-card p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
-                  <p className="font-medium text-foreground">{clinicianNames[a.clinician_id] || 'Loading...'}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {format(new Date(a.appointment_date), 'PPP p')}
-                  </p>
-                  {a.notes && <p className="text-xs text-muted-foreground mt-1">{a.notes}</p>}
-                </div>
-                <div className="flex items-center gap-2">
-                  <Badge variant="outline" className={statusColors[a.status] || ''}>
-                    {a.status}
-                  </Badge>
-                  {a.status === 'pending' && (
-                    <Button size="sm" variant="outline" onClick={() => cancelAppointment(a.id)} className="text-destructive hover:text-destructive">
-                      <X className="h-3 w-3 mr-1" /> Cancel
-                    </Button>
-                  )}
-                </div>
+    <AppLayout>
+      <h1 className="text-2xl font-display font-bold text-foreground mb-6 tracking-tight">My Appointments</h1>
+      {loading ? <LoadingSpinner /> : appointments.length === 0 ? (
+        <EmptyState icon={Calendar} title="No appointments" description="You haven't booked any appointments yet." />
+      ) : (
+        <div className="space-y-3">
+          {appointments.map(a => (
+            <div key={a.id} className="clinical-card p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <p className="font-medium text-foreground text-sm">{clinicianNames[a.clinician_id] || 'Loading...'}</p>
+                <p className="text-sm text-muted-foreground">{format(new Date(a.appointment_date), 'PPP p')}</p>
+                {a.notes && <p className="text-xs text-muted-foreground mt-1">{a.notes}</p>}
               </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className={statusColors[a.status] || ''}>{a.status}</Badge>
+                {a.status === 'pending' && (
+                  <Button size="sm" variant="outline" onClick={() => cancelAppointment(a.id)} className="text-destructive hover:text-destructive">
+                    <X className="h-3 w-3 mr-1" /> Cancel
+                  </Button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </AppLayout>
   );
 };
 
