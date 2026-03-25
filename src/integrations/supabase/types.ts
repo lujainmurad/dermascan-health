@@ -60,6 +60,7 @@ export type Database = {
           patient_id: string
           prediction_label: string | null
           recommendation: string | null
+          report_pdf: string | null
           status: string | null
           updated_at: string
         }
@@ -75,6 +76,7 @@ export type Database = {
           patient_id: string
           prediction_label?: string | null
           recommendation?: string | null
+          report_pdf?: string | null
           status?: string | null
           updated_at?: string
         }
@@ -90,8 +92,36 @@ export type Database = {
           patient_id?: string
           prediction_label?: string | null
           recommendation?: string | null
+          report_pdf?: string | null
           status?: string | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      clinician_availability: {
+        Row: {
+          clinician_id: string
+          created_at: string
+          day_of_week: number
+          end_time: string
+          id: string
+          start_time: string
+        }
+        Insert: {
+          clinician_id: string
+          created_at?: string
+          day_of_week: number
+          end_time: string
+          id?: string
+          start_time: string
+        }
+        Update: {
+          clinician_id?: string
+          created_at?: string
+          day_of_week?: number
+          end_time?: string
+          id?: string
+          start_time?: string
         }
         Relationships: []
       }
@@ -148,7 +178,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      is_slot_available: {
+        Args: { _appointment_date: string; _clinician_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role: "patient" | "clinician"
