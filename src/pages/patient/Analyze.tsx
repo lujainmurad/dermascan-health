@@ -1,11 +1,11 @@
 import { useState, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import Navbar from '@/components/Navbar';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Camera, Upload, Loader2, AlertTriangle, CheckCircle, Calendar } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import AppLayout from '@/components/layouts/AppLayout';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://supreme-space-meme-x5wgrj6ppwr739qr4-8000.app.github.dev';
 
@@ -36,7 +36,6 @@ const PatientAnalyze = () => {
 
   const handleAnalyze = async () => {
     if (!image || !user) return;
-
     if (!BACKEND_URL) {
       toast({ title: 'Backend not connected', description: 'The AI analysis backend URL is not configured. Set VITE_BACKEND_URL.', variant: 'destructive' });
       return;
@@ -46,17 +45,11 @@ const PatientAnalyze = () => {
     try {
       const formData = new FormData();
       formData.append('image', image);
-
-      const response = await fetch(`${BACKEND_URL}/analyze/patient`, {
-        method: 'POST',
-        body: formData,
-      });
-
+      const response = await fetch(`${BACKEND_URL}/analyze/patient`, { method: 'POST', body: formData });
       if (!response.ok) throw new Error('Analysis failed');
       const data: AnalysisResult = await response.json();
       setResult(data);
 
-      // Save case to Supabase
       const { error } = await supabase.from('cases').insert({
         patient_id: user.id,
         prediction_label: data.risk_level,
@@ -73,11 +66,10 @@ const PatientAnalyze = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <Navbar />
-      <div className="container mx-auto px-4 py-8 max-w-2xl">
-        <h1 className="text-2xl font-display font-bold text-foreground mb-2">Analyze a Lesion</h1>
-        <p className="text-muted-foreground mb-6">Upload or capture an image for AI-powered skin analysis.</p>
+    <AppLayout>
+      <div className="max-w-2xl">
+        <h1 className="text-2xl font-display font-bold text-foreground mb-2 tracking-tight">Check a Spot</h1>
+        <p className="text-muted-foreground text-sm mb-6">Upload or capture an image for AI-powered skin analysis.</p>
 
         {!BACKEND_URL && (
           <div className="rounded-lg border border-warning/30 bg-warning/5 p-4 flex gap-3 mb-6">
@@ -91,17 +83,17 @@ const PatientAnalyze = () => {
           </div>
         )}
 
-        <div className="medical-card p-6">
+        <div className="clinical-card p-6">
           {!preview ? (
             <div className="border-2 border-dashed border-border rounded-xl p-12 text-center">
               <div className="flex flex-col items-center gap-4">
                 <Camera className="h-12 w-12 text-muted-foreground" />
-                <p className="text-muted-foreground">Capture or upload an image of the skin lesion</p>
+                <p className="text-muted-foreground text-sm">Capture or upload an image of the skin lesion</p>
                 <div className="flex gap-3">
-                  <Button onClick={() => cameraInputRef.current?.click()} variant="outline">
+                  <Button onClick={() => cameraInputRef.current?.click()} variant="outline" size="sm">
                     <Camera className="mr-2 h-4 w-4" /> Use Camera
                   </Button>
-                  <Button onClick={() => fileInputRef.current?.click()}>
+                  <Button onClick={() => fileInputRef.current?.click()} size="sm">
                     <Upload className="mr-2 h-4 w-4" /> Upload File
                   </Button>
                 </div>
@@ -145,7 +137,6 @@ const PatientAnalyze = () => {
                       </div>
                       <p className="text-sm text-foreground">{result.recommendation}</p>
                     </div>
-
                     {isHighRisk && (
                       <Button asChild className="w-full" size="lg">
                         <Link to="/patient/find-specialist">
@@ -160,7 +151,7 @@ const PatientAnalyze = () => {
           )}
         </div>
       </div>
-    </div>
+    </AppLayout>
   );
 };
 
