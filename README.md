@@ -1,32 +1,66 @@
-# DermaScan AI
+# DermaScan AI — Skin Cancer Detection Platform
 
-Hospital-grade skin cancer detection platform.
+A hospital-grade web application for AI-powered dermoscopy analysis.
 
-## Start Backend (every session)
-```bash
-cd backend && bash start.sh
+## Architecture
+```
+Frontend (Lovable)          Backend (GitHub Codespaces)
+lovable.dev/projects/...    supreme-space-meme-*.github.dev:8000
+        |                              |
+        |--- POST /analyze/clinician -->|
+        |                              |-- ResNetUNetV4 segmentation
+        |                              |-- Feature extraction (ABCDE + PyRadiomics)
+        |                              |-- PDF report generation
+        |<-- overlay + features + PDF--|
 ```
 
-Then in PORTS tab → port 8000 → make Public → copy URL.
-Update VITE_BACKEND_URL in Lovable to the new URL.
+## Stack
 
-## Every Session Checklist
+- **Frontend**: React + TypeScript + Tailwind (Lovable)
+- **Auth + DB**: Supabase (Lovable Cloud)
+- **Backend**: FastAPI + Python 3.10
+- **Segmentation**: ResNetUNetV4 (ResNet-50, trained on ISIC 2017)
+- **Features**: ABCDE clinical features + PyRadiomics
+- **Reports**: ReportLab PDF generation
 
-1. Resume existing Codespace (don't create new)
-2. `cd backend && bash start.sh`
-3. PORTS tab → port 8000 → Public
-4. Copy URL → update Lovable VITE_BACKEND_URL
-5. Test: visit /health endpoint
+## Backend Files
+```
+backend/
+├── main.py           # FastAPI routes
+├── model.py          # ResNetUNetV4 architecture
+├── segmentation.py   # Mask prediction + overlay generation
+├── features.py       # ABCDE + texture + PyRadiomics extraction
+├── report.py         # PDF report generation
+├── best_model.pt     # Trained segmentation model (not in git)
+├── start.sh          # One-command startup
+└── venv310/          # Python 3.10 venv (not in git)
+```
 
-## NOT in GitHub (keep local copies)
+## Starting the Backend
+```bash
+cd backend
+bash start.sh
+```
 
-- `backend/best_model.pt` — re-upload manually if lost
-- `backend/venv310/` — recreated by devcontainer setup
+Backend runs at port 8000. Make port Public in Codespaces Ports tab.
+
+## Frontend
+
+Hosted on Lovable: https://lovable.dev/projects/65019082-eb07-4b59-96c3-37881b940c9d
+
+Set VITE_BACKEND_URL in Lovable secrets to your Codespace URL:
+`https://supreme-space-meme-x5wgrj6ppwr739qr4-8000.app.github.dev`
+
+## Important Notes
+
+- `best_model.pt` is NOT committed to git (177MB). Keep a local copy.
+- `venv310/` is NOT committed to git. Recreated automatically by devcontainer setup.
+- Codespace URL changes each session — update VITE_BACKEND_URL in Lovable each time.
 
 ## Phases
 
-- Phase 1: Auth + pages
-- Phase 2: Segmentation overlay
-- Phase 3: Feature extraction + PDF report
-- Phase 4: Classifier (pending)
-- Phase 5: Map + booking (pending)
+- ✅ Phase 1: Auth + all pages + navigation
+- ✅ Phase 2: Segmentation overlay connected
+- ✅ Phase 3: Feature extraction + PDF report
+- ⏳ Phase 4: Classifier (melanoma/SK/nevi confidence score)
+- ⏳ Phase 5: Map + booking + email
