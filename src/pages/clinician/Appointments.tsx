@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import Navbar from '@/components/Navbar';
@@ -6,6 +7,7 @@ import EmptyState from '@/components/EmptyState';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { Calendar, Check, X } from 'lucide-react';
 import { format } from 'date-fns';
@@ -22,6 +24,7 @@ const ClinicianAppointments = () => {
   const [appointments, setAppointments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [patientNames, setPatientNames] = useState<Record<string, string>>({});
+  const [filter, setFilter] = useState('all');
 
   const fetchAppointments = async () => {
     if (!user) return;
@@ -56,19 +59,40 @@ const ClinicianAppointments = () => {
     }
   };
 
+  const now = new Date();
+  const filtered = appointments.filter(a => {
+    if (filter === 'upcoming') return new Date(a.appointment_date) >= now;
+    if (filter === 'past') return new Date(a.appointment_date) < now;
+    return true;
+  });
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
       <div className="container mx-auto px-4 py-8">
-        <h1 className="text-2xl font-display font-bold text-foreground mb-6">Appointments</h1>
-        {loading ? <LoadingSpinner /> : appointments.length === 0 ? (
+        <h1 className="text-2xl font-display font-bold text-foreground mb-4">Appointments</h1>
+
+        <Tabs value={filter} onValueChange={setFilter} className="mb-6">
+          <TabsList>
+            <TabsTrigger value="all">All</TabsTrigger>
+            <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
+            <TabsTrigger value="past">Past</TabsTrigger>
+          </TabsList>
+        </Tabs>
+
+        {loading ? <LoadingSpinner /> : filtered.length === 0 ? (
           <EmptyState icon={Calendar} title="No appointments" description="Patient appointment requests will appear here." />
         ) : (
           <div className="space-y-3">
-            {appointments.map(a => (
+            {filtered.map(a => (
               <div key={a.id} className="medical-card p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="flex-1">
-                  <p className="font-medium text-foreground">{patientNames[a.patient_id] || 'Loading...'}</p>
+                  <Link
+                    to={`/clinician/patient/${a.patient_id}`}
+                    className="font-medium text-foreground hover:text-primary transition-colors underline-offset-2 hover:underline"
+                  >
+                    {patientNames[a.patient_id] || 'Loading...'}
+                  </Link>
                   <p className="text-sm text-muted-foreground">{format(new Date(a.appointment_date), 'PPP p')}</p>
                   {a.notes && <p className="text-xs text-muted-foreground mt-1">{a.notes}</p>}
                 </div>

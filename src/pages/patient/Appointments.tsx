@@ -5,7 +5,9 @@ import Navbar from '@/components/Navbar';
 import EmptyState from '@/components/EmptyState';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { Badge } from '@/components/ui/badge';
-import { Calendar } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
+import { Calendar, X } from 'lucide-react';
 import { format } from 'date-fns';
 
 const statusColors: Record<string, string> = {
@@ -16,24 +18,23 @@ const statusColors: Record<string, string> = {
 
 const PatientAppointments = () => {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [appointments, setAppointments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const fetchAppointments = async () => {
     if (!user) return;
-    const fetch = async () => {
-      const { data } = await supabase
-        .from('appointments')
-        .select('*')
-        .eq('patient_id', user.id)
-        .order('appointment_date', { ascending: false });
-      setAppointments(data || []);
-      setLoading(false);
-    };
-    fetch();
-  }, [user]);
+    const { data } = await supabase
+      .from('appointments')
+      .select('*')
+      .eq('patient_id', user.id)
+      .order('appointment_date', { ascending: false });
+    setAppointments(data || []);
+    setLoading(false);
+  };
 
-  // Fetch clinician names
+  useEffect(() => { fetchAppointments(); }, [user]);
+
   const [clinicianNames, setClinicianNames] = useState<Record<string, string>>({});
   useEffect(() => {
     const ids = [...new Set(appointments.map(a => a.clinician_id))];
@@ -44,6 +45,16 @@ const PatientAppointments = () => {
       setClinicianNames(map);
     });
   }, [appointments]);
+
+  const cancelAppointment = async (id: string) => {
+    const { error } = await supabase.from('appointments').update({ status: 'cancelled' }).eq('id', id);
+    if (error) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: 'Appointment cancelled' });
+      fetchAppointments();
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -63,9 +74,16 @@ const PatientAppointments = () => {
                   </p>
                   {a.notes && <p className="text-xs text-muted-foreground mt-1">{a.notes}</p>}
                 </div>
-                <Badge variant="outline" className={statusColors[a.status] || ''}>
-                  {a.status}
-                </Badge>
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className={statusColors[a.status] || ''}>
+                    {a.status}
+                  </Badge>
+                  {a.status === 'pending' && (
+                    <Button size="sm" variant="outline" onClick={() => cancelAppointment(a.id)} className="text-destructive hover:text-destructive">
+                      <X className="h-3 w-3 mr-1" /> Cancel
+                    </Button>
+                  )}
+                </div>
               </div>
             ))}
           </div>
