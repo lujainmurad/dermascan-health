@@ -1,10 +1,14 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import Navbar from '@/components/Navbar';
 import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Upload, Loader2, AlertTriangle, Download } from 'lucide-react';
+import { Upload, Loader2, AlertTriangle, Download, Save } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { format } from 'date-fns';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://supreme-space-meme-x5wgrj6ppwr739qr4-8000.app.github.dev';
 
@@ -31,6 +35,12 @@ interface AnalysisResult {
   report_ready?: boolean;
 }
 
+interface PatientOption {
+  user_id: string;
+  full_name: string | null;
+  email: string | null;
+}
+
 const featureLabels: Record<keyof FeatureSummary, string> = {
   asymmetry: 'Asymmetry',
   border_irregularity: 'Border Irregularity',
@@ -52,6 +62,23 @@ const ClinicianAnalyze = () => {
   const [preview, setPreview] = useState<string | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [result, setResult] = useState<AnalysisResult | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  // Patient selector
+  const [patients, setPatients] = useState<PatientOption[]>([]);
+  const [selectedPatient, setSelectedPatient] = useState<string>('');
+
+  useEffect(() => {
+    if (!user) return;
+    // Fetch unique patients from this clinician's appointments
+    supabase.from('appointments').select('patient_id').eq('clinician_id', user.id).then(async ({ data }) => {
+      const ids = [...new Set((data || []).map((a: any) => a.patient_id))];
+      if (ids.length === 0) return;
+      const { data: profiles } = await supabase.from('profiles').select('user_id, full_name, email').in('user_id', ids);
+      setPatients((profiles as PatientOption[]) || []);
+    });
+  }, [user]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -59,6 +86,7 @@ const ClinicianAnalyze = () => {
       setImage(file);
       setPreview(URL.createObjectURL(file));
       setResult(null);
+      setSaved(false);
     }
   };
 
@@ -83,6 +111,51 @@ const ClinicianAnalyze = () => {
     } finally {
       setAnalyzing(false);
     }
+  };
+
+  const handleSaveCase = async () => {
+    if (!result || !user || !image || !selectedPatient) return;
+    setSaving(true);
+
+    try {
+      // Upload original image
+      const fileName = `${user.id}/${Date.now()}_${image.name}`;
+      const { error: uploadError } = await supabase.storage.from('case-images').upload(fileName, image);
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage.from('case-images').getPublicUrl(fileName);
+
+      // Insert case
+      const { error: insertError } = await supabase.from('cases').insert({
+        clinician_id: user.id,
+        patient_id: selectedPatient,
+        image_url: publicUrl,
+        overlay_image_url: result.overlay_image || null,
+        prediction_label: result.prediction,
+        confidence: result.confidence,
+        features_summary: result.feature_summary ? (result.feature_summary as any) : null,
+        report_pdf: result.report_pdf || null,
+        status: 'reviewed',
+      });
+
+      if (insertError) throw insertError;
+
+      setSaved(true);
+      toast({ title: 'Case saved', description: 'Analysis results have been saved to the patient record.' });
+    } catch (err: any) {
+      toast({ title: 'Save Error', description: err.message, variant: 'destructive' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const downloadReport = () => {
+    if (!result?.report_pdf) return;
+    const dateStr = format(new Date(), 'yyyy-MM-dd');
+    const link = document.createElement('a');
+    link.href = result.report_pdf;
+    link.download = `dermascan_report_${dateStr}.pdf`;
+    link.click();
   };
 
   return (
@@ -132,7 +205,7 @@ const ClinicianAnalyze = () => {
                 <Button onClick={handleAnalyze} disabled={analyzing || !BACKEND_URL} className="flex-1">
                   {analyzing ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Analyzing...</> : 'Analyze'}
                 </Button>
-                <Button variant="outline" onClick={() => { setPreview(null); setImage(null); setResult(null); }}>Clear</Button>
+                <Button variant="outline" onClick={() => { setPreview(null); setImage(null); setResult(null); setSaved(false); }}>Clear</Button>
               </div>
 
               {result && (
@@ -174,17 +247,38 @@ const ClinicianAnalyze = () => {
                     </Card>
                   )}
 
+                  {/* Save Case Section */}
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-lg">Save to Patient Record</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="space-y-2">
+                        <Label>Link to Patient</Label>
+                        <Select value={selectedPatient} onValueChange={setSelectedPatient}>
+                          <SelectTrigger><SelectValue placeholder="Select a patient" /></SelectTrigger>
+                          <SelectContent>
+                            {patients.map(p => (
+                              <SelectItem key={p.user_id} value={p.user_id}>
+                                {p.full_name || p.email || 'Unknown'}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {patients.length === 0 && (
+                          <p className="text-xs text-muted-foreground">No patients found. Patients appear here after booking appointments with you.</p>
+                        )}
+                      </div>
+                      <Button onClick={handleSaveCase} disabled={saving || saved || !selectedPatient} className="w-full">
+                        {saving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</>
+                          : saved ? <><Save className="mr-2 h-4 w-4" /> Saved</>
+                          : <><Save className="mr-2 h-4 w-4" /> Save Case</>}
+                      </Button>
+                    </CardContent>
+                  </Card>
+
                   {result.report_ready && result.report_pdf ? (
-                    <Button
-                      variant="outline"
-                      className="w-full"
-                      onClick={() => {
-                        const link = document.createElement('a');
-                        link.href = result.report_pdf!;
-                        link.download = 'dermascan_report.pdf';
-                        link.click();
-                      }}
-                    >
+                    <Button variant="outline" className="w-full" onClick={downloadReport}>
                       <Download className="mr-2 h-4 w-4" /> Download Report
                     </Button>
                   ) : (

@@ -21,6 +21,7 @@ import ClinicianAnalyze from "./pages/clinician/Analyze";
 import PatientCases from "./pages/clinician/PatientCases";
 import CaseDetail from "./pages/clinician/CaseDetail";
 import ClinicianAppointments from "./pages/clinician/Appointments";
+import PatientHistory from "./pages/clinician/PatientHistory";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -52,6 +53,7 @@ const App = () => (
             <Route path="/clinician/cases" element={<ProtectedRoute requiredRole="clinician"><PatientCases /></ProtectedRoute>} />
             <Route path="/clinician/cases/:id" element={<ProtectedRoute requiredRole="clinician"><CaseDetail /></ProtectedRoute>} />
             <Route path="/clinician/appointments" element={<ProtectedRoute requiredRole="clinician"><ClinicianAppointments /></ProtectedRoute>} />
+            <Route path="/clinician/patient/:patientId" element={<ProtectedRoute requiredRole="clinician"><PatientHistory /></ProtectedRoute>} />
 
             <Route path="*" element={<NotFound />} />
           </Routes>

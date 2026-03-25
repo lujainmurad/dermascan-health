@@ -4,9 +4,23 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, AlertCircle } from 'lucide-react';
+import { Loader2, AlertCircle, Trash2, Plus, Clock } from 'lucide-react';
 import Navbar from '@/components/Navbar';
+
+const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const HOURS = Array.from({ length: 11 }, (_, i) => {
+  const h = i + 8;
+  return `${h.toString().padStart(2, '0')}:00`;
+});
+
+interface AvailabilityRow {
+  id: string;
+  day_of_week: number;
+  start_time: string;
+  end_time: string;
+}
 
 const Settings = () => {
   const { profile, refreshProfile } = useAuth();
@@ -20,6 +34,14 @@ const Settings = () => {
     city: '',
   });
 
+  // Availability state
+  const [availability, setAvailability] = useState<AvailabilityRow[]>([]);
+  const [loadingAvail, setLoadingAvail] = useState(false);
+  const [newDay, setNewDay] = useState('1');
+  const [newStart, setNewStart] = useState('09:00');
+  const [newEnd, setNewEnd] = useState('17:00');
+  const [addingAvail, setAddingAvail] = useState(false);
+
   useEffect(() => {
     if (profile) {
       setForm({
@@ -29,8 +51,50 @@ const Settings = () => {
         specialty: profile.specialty || '',
         city: profile.city || '',
       });
+      if (profile.role === 'clinician') {
+        fetchAvailability();
+      }
     }
   }, [profile]);
+
+  const fetchAvailability = async () => {
+    if (!profile) return;
+    setLoadingAvail(true);
+    const { data } = await supabase
+      .from('clinician_availability')
+      .select('*')
+      .eq('clinician_id', profile.user_id)
+      .order('day_of_week', { ascending: true });
+    setAvailability((data as AvailabilityRow[]) || []);
+    setLoadingAvail(false);
+  };
+
+  const addAvailability = async () => {
+    if (!profile) return;
+    setAddingAvail(true);
+    const { error } = await supabase.from('clinician_availability').insert({
+      clinician_id: profile.user_id,
+      day_of_week: parseInt(newDay),
+      start_time: newStart,
+      end_time: newEnd,
+    });
+    setAddingAvail(false);
+    if (error) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: 'Availability added' });
+      fetchAvailability();
+    }
+  };
+
+  const deleteAvailability = async (id: string) => {
+    const { error } = await supabase.from('clinician_availability').delete().eq('id', id);
+    if (error) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    } else {
+      setAvailability(prev => prev.filter(a => a.id !== id));
+    }
+  };
 
   const handleSave = async () => {
     if (!profile) return;
@@ -45,7 +109,6 @@ const Settings = () => {
     if (profile.role === 'clinician') {
       updateData.hospital_name = form.hospital_name;
       updateData.specialty = form.specialty;
-      // Auto-verify if all fields filled
       if (form.full_name && form.hospital_name && form.specialty && form.phone) {
         updateData.verified = true;
       }
@@ -122,6 +185,76 @@ const Settings = () => {
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Save Changes
           </Button>
         </div>
+
+        {/* Availability Management for Clinicians */}
+        {profile?.role === 'clinician' && (
+          <div className="medical-card p-6 mt-6 space-y-5">
+            <div className="flex items-center gap-2">
+              <Clock className="h-5 w-5 text-primary" />
+              <h2 className="text-lg font-display font-semibold text-foreground">Weekly Availability</h2>
+            </div>
+            <p className="text-sm text-muted-foreground">Set your recurring weekly availability so patients can book 1-hour appointment slots.</p>
+
+            {/* Add new availability */}
+            <div className="flex flex-col sm:flex-row gap-3 items-end">
+              <div className="flex-1 space-y-1">
+                <Label className="text-xs">Day</Label>
+                <Select value={newDay} onValueChange={setNewDay}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {DAY_NAMES.map((name, i) => (
+                      <SelectItem key={i} value={String(i)}>{name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">From</Label>
+                <Select value={newStart} onValueChange={setNewStart}>
+                  <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {HOURS.map(h => <SelectItem key={h} value={h}>{h}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">To</Label>
+                <Select value={newEnd} onValueChange={setNewEnd}>
+                  <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {HOURS.map(h => <SelectItem key={h} value={h}>{h}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button onClick={addAvailability} disabled={addingAvail} size="sm">
+                <Plus className="h-4 w-4 mr-1" /> Add
+              </Button>
+            </div>
+
+            {/* Current availability list */}
+            {loadingAvail ? (
+              <p className="text-sm text-muted-foreground">Loading...</p>
+            ) : availability.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No availability set. Add your working hours above.</p>
+            ) : (
+              <div className="space-y-2">
+                {availability.map(a => (
+                  <div key={a.id} className="flex items-center justify-between rounded-lg bg-muted p-3">
+                    <div className="text-sm">
+                      <span className="font-medium text-foreground">{DAY_NAMES[a.day_of_week]}</span>
+                      <span className="text-muted-foreground ml-2">
+                        {a.start_time.slice(0, 5)} – {a.end_time.slice(0, 5)}
+                      </span>
+                    </div>
+                    <Button variant="ghost" size="sm" onClick={() => deleteAvailability(a.id)} className="text-destructive hover:text-destructive">
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
