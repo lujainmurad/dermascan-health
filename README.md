@@ -1,66 +1,521 @@
 # DermaScan AI — Skin Cancer Detection Platform
 
-A hospital-grade web application for AI-powered dermoscopy analysis.
+> Hospital-grade web application for AI-powered dermoscopy analysis.  
+> Built with React (Lovable), FastAPI (GitHub Codespaces), and a ResNet-50 UNet segmentation model trained on ISIC 2017.
 
-## Architecture
+---
+
+## Table of Contents
+
+1. [What This App Does](#what-this-app-does)
+2. [Architecture Overview](#architecture-overview)
+3. [Technology Stack](#technology-stack)
+4. [Project Structure](#project-structure)
+5. [Current Feature Status](#current-feature-status)
+6. [Every Session — Start Checklist](#every-session--start-checklist)
+7. [Every Session — End Checklist](#every-session--end-checklist)
+8. [Backend Startup Details](#backend-startup-details)
+9. [What Is and Is Not Saved in GitHub](#what-is-and-is-not-saved-in-github)
+10. [Troubleshooting Common Issues](#troubleshooting-common-issues)
+11. [API Endpoints Reference](#api-endpoints-reference)
+12. [Phase Roadmap](#phase-roadmap)
+
+---
+
+## What This App Does
+
+DermaScan AI is a two-portal medical web application:
+
+**Patient Portal**
+- Upload or photograph a skin lesion using the device camera
+- Receive a risk assessment (low / moderate / high) based on segmentation
+- If high risk, prompted to book an appointment with a registered clinician
+- Find nearby specialists with contact information
+
+**Clinician Portal**
+- Upload dermoscopy images received from a lab or taken directly
+- AI model segments the lesion and generates a teal overlay displayed side by side with the original
+- Feature summary card shows 10 key clinical measurements (asymmetry, border irregularity, color count, solidity, lesion area %, major/minor axis, eccentricity, GLCM contrast, LBP entropy)
+- Download a professional 2-page PDF report containing: both images, all ABCDE features, texture analysis, color analysis, shape measurements, and a rule-based clinical recommendation (escalate to biopsy or monitor)
+- Patient case history with uploaded images and past results
+- Appointment management
+
+---
+
+## Architecture Overview
+
 ```
-Frontend (Lovable)          Backend (GitHub Codespaces)
-lovable.dev/projects/...    supreme-space-meme-*.github.dev:8000
-        |                              |
-        |--- POST /analyze/clinician -->|
-        |                              |-- ResNetUNetV4 segmentation
-        |                              |-- Feature extraction (ABCDE + PyRadiomics)
-        |                              |-- PDF report generation
-        |<-- overlay + features + PDF--|
+┌─────────────────────────────────────────────────────────────┐
+│                     USER BROWSER                            │
+│                                                             │
+│   Lovable Frontend (React + TypeScript + Tailwind)          │
+│   https://lovable.dev/projects/65019082-eb07-4b59-...       │
+│                                                             │
+│   Auth + Database: Supabase (Lovable Cloud)                 │
+│   Tables: profiles, cases, appointments                     │
+│   Storage: case-images bucket                               │
+└──────────────────────┬──────────────────────────────────────┘
+                       │ POST /analyze/clinician
+                       │ POST /analyze/patient
+                       │ (multipart form, image file)
+                       ▼
+┌─────────────────────────────────────────────────────────────┐
+│              GitHub Codespaces Backend                      │
+│   https://supreme-space-meme-x5wgrj6ppwr739qr4-8000...     │
+│   (URL changes every session — update Lovable each time)    │
+│                                                             │
+│   FastAPI server — Python 3.10 inside venv310               │
+│                                                             │
+│   Pipeline:                                                 │
+│   1. segmentation.py  → ResNetUNetV4 → mask + overlay PNG   │
+│   2. features.py      → ABCDE + PyRadiomics → feature dict  │
+│   3. report.py        → ReportLab → PDF bytes               │
+│                                                             │
+│   Returns JSON:                                             │
+│     overlay_image (base64 PNG)                              │
+│     feature_summary (10 key values)                         │
+│     report_pdf (base64 PDF)                                 │
+│     report_ready: true                                      │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-## Stack
+---
 
-- **Frontend**: React + TypeScript + Tailwind (Lovable)
-- **Auth + DB**: Supabase (Lovable Cloud)
-- **Backend**: FastAPI + Python 3.10
-- **Segmentation**: ResNetUNetV4 (ResNet-50, trained on ISIC 2017)
-- **Features**: ABCDE clinical features + PyRadiomics
-- **Reports**: ReportLab PDF generation
+## Technology Stack
 
-## Backend Files
+| Layer | Technology | Version | Notes |
+|---|---|---|---|
+| Frontend framework | React + TypeScript | Latest | Generated by Lovable |
+| Styling | Tailwind CSS | Latest | |
+| Auth + DB | Supabase | Cloud | Lovable's managed instance |
+| Backend framework | FastAPI | 0.111.0 | |
+| Server | Uvicorn | 0.29.0 | |
+| Python runtime | Python | 3.10.20 | Must be 3.10 for PyRadiomics |
+| Deep learning | PyTorch | 2.2.2+cpu | CPU only in Codespaces |
+| Segmentation model | ResNetUNetV4 | Custom | ResNet-50 encoder, trained ISIC 2017 |
+| Image processing | OpenCV | 4.8.1 | headless version |
+| Radiomics | PyRadiomics | 3.0.1 | Requires numpy 1.26.4 |
+| Medical imaging | SimpleITK | 2.5.3 | Required by PyRadiomics |
+| Numerical | NumPy | 1.26.4 | Pinned — PyRadiomics incompatible with 2.x |
+| PDF generation | ReportLab | 4.1.0 | |
+| Hosting | GitHub Codespaces | Free tier | 2-core, 8GB RAM, 32GB disk |
+
+---
+
+## Project Structure
+
 ```
-backend/
-├── main.py           # FastAPI routes
-├── model.py          # ResNetUNetV4 architecture
-├── segmentation.py   # Mask prediction + overlay generation
-├── features.py       # ABCDE + texture + PyRadiomics extraction
-├── report.py         # PDF report generation
-├── best_model.pt     # Trained segmentation model (not in git)
-├── start.sh          # One-command startup
-└── venv310/          # Python 3.10 venv (not in git)
+dermascan-health/
+├── .devcontainer/
+│   ├── devcontainer.json      ← Codespaces config: auto-forward port 8000 as public
+│   └── setup.sh               ← Auto-runs on new Codespace: installs Python 3.10 + all packages
+│
+├── backend/
+│   ├── main.py                ← FastAPI app: /health, /analyze/clinician, /analyze/patient
+│   ├── model.py               ← ResNetUNetV4 architecture definition + model loader (cached)
+│   ├── segmentation.py        ← Image preprocessing, mask prediction, overlay generation
+│   ├── features.py            ← ABCDE features + texture + shape + PyRadiomics extraction
+│   ├── report.py              ← ReportLab PDF generator (2-page professional report)
+│   ├── requirements.txt       ← Package list with exact versions
+│   ├── start.sh               ← One-command startup: activates venv310, runs main.py
+│   ├── best_model.pt          ← ⚠️ NOT in GitHub (177MB). Keep a local backup.
+│   ├── venv310/               ← ⚠️ NOT in GitHub. Python 3.10 virtual environment.
+│   ├── uploads/               ← Temp directory (gitignored)
+│   └── outputs/               ← Temp directory (gitignored)
+│
+├── src/                       ← React frontend (managed by Lovable)
+├── supabase/                  ← Supabase config (managed by Lovable)
+├── public/                    ← Static assets
+├── .gitignore                 ← Excludes venv310/, best_model.pt, uploads/, outputs/
+├── README.md                  ← This file
+├── package.json               ← Frontend dependencies
+└── ... (other config files)
 ```
 
-## Starting the Backend
+---
+
+## Current Feature Status
+
+### ✅ Working
+
+| Feature | Details |
+|---|---|
+| Email auth (signup/login) | Via Supabase, email verification |
+| Role selection | Patient or Clinician at signup |
+| All pages + navigation | Dashboard, Analyze, Patient Cases, Appointments, Find Specialist, Book Appointment, Account Settings |
+| Clinician image upload | JPG/PNG, max 20MB |
+| Segmentation overlay | ResNetUNetV4 → teal mask overlay displayed side-by-side |
+| Feature summary card | 10 key measurements shown in grid on clinician analyze page |
+| PDF report download | 2-page professional report with images + all features + recommendation |
+| Patient image upload | Camera capture or file upload |
+| Patient risk assessment | low/moderate/high based on lesion area proxy |
+| Backend health check | GET /health returns status |
+
+### ⏳ Pending (Future Phases)
+
+| Feature | Phase |
+|---|---|
+| 3-class classifier (melanoma / SK / nevi) | Phase 4 |
+| Confidence score displayed in UI | Phase 4 |
+| Classifier result in PDF report | Phase 4 |
+| Google Maps — nearest clinics | Phase 5 |
+| Appointment booking system | Phase 5 |
+| Email notifications | Phase 5 |
+| Web scraping for unregistered clinicians | Phase 5 |
+| Patient case saved to Supabase | Phase 6 |
+| Clinician can view patient history | Phase 6 |
+
+---
+
+## Every Session — Start Checklist
+
+Do these steps **in order** every time you open the Codespace.
+
+### Step 1 — Open your existing Codespace (never create a new one)
+
+1. Go to [github.com/lujainmurad/dermascan-health](https://github.com/lujainmurad/dermascan-health)
+2. Click the green **Code** button
+3. Click **Codespaces** tab
+4. Click your existing Codespace named **"supreme space meme"** to resume it
+5. Wait ~30 seconds for VS Code to load
+
+> ⚠️ Never click "Create codespace on main" — that creates a fresh empty environment with no venv310 or best_model.pt. Always resume the existing one.
+
+### Step 2 — Start the backend server
+
+In the terminal at the bottom of VS Code:
+
 ```bash
-cd backend
-bash start.sh
+cd /workspaces/dermascan-health/backend
+source venv310/bin/activate
+python main.py
 ```
 
-Backend runs at port 8000. Make port Public in Codespaces Ports tab.
+Or use the shortcut script:
 
-## Frontend
+```bash
+cd /workspaces/dermascan-health/backend && bash start.sh
+```
 
-Hosted on Lovable: https://lovable.dev/projects/65019082-eb07-4b59-96c3-37881b940c9d
+You should see:
+```
+INFO:     Uvicorn running on http://0.0.0.0:8000
+INFO:     Application startup complete.
+```
 
-Set VITE_BACKEND_URL in Lovable secrets to your Codespace URL:
-`https://supreme-space-meme-x5wgrj6ppwr739qr4-8000.app.github.dev`
+### Step 3 — Make port 8000 public
 
-## Important Notes
+1. Click the **PORTS** tab at the bottom of VS Code
+2. Find port **8000**
+3. Right-click it → **Port Visibility** → **Public**
+4. Or click the globe icon next to port 8000
 
-- `best_model.pt` is NOT committed to git (177MB). Keep a local copy.
-- `venv310/` is NOT committed to git. Recreated automatically by devcontainer setup.
-- Codespace URL changes each session — update VITE_BACKEND_URL in Lovable each time.
+### Step 4 — Copy your backend URL
 
-## Phases
+Your URL format is:
+```
+https://supreme-space-meme-x5wgrj6ppwr739qr4-8000.app.github.dev
+```
 
-- ✅ Phase 1: Auth + all pages + navigation
-- ✅ Phase 2: Segmentation overlay connected
-- ✅ Phase 3: Feature extraction + PDF report
-- ⏳ Phase 4: Classifier (melanoma/SK/nevi confidence score)
-- ⏳ Phase 5: Map + booking + email
+The part before `-8000` changes slightly sometimes. Always copy it fresh from the PORTS tab.
+
+Test it works by visiting:
+```
+https://YOUR-URL/health
+```
+You should see: `{"status":"ok","message":"DermaScan AI backend is running"}`
+
+### Step 5 — Update Lovable with the new backend URL
+
+1. Go to your Lovable project: [lovable.dev/projects/65019082-eb07-4b59-96c3-37881b940c9d](https://lovable.dev/projects/65019082-eb07-4b59-96c3-37881b940c9d)
+2. In the Lovable chat box, type exactly:
+
+```
+Update VITE_BACKEND_URL to https://YOUR-CODESPACE-URL-HERE
+```
+
+3. Wait for Lovable to apply the change (about 10 seconds)
+
+### Step 6 — Test end to end
+
+1. Open the Lovable preview (click the external link icon next to the URL bar in Lovable)
+2. Log in as a clinician
+3. Go to **Analyze Image**
+4. Upload a dermoscopy image
+5. Click **Analyze**
+6. First request loads the 177MB model — takes 30–90 seconds
+7. You should see: overlay image, feature summary, Download Report button
+
+---
+
+## Every Session — End Checklist
+
+Before closing, always save your work to GitHub.
+
+```bash
+cd /workspaces/dermascan-health
+git add .
+git commit -m "Session save - $(date '+%Y-%m-%d %H:%M')"
+git push origin main
+```
+
+Then stop the server: **Ctrl+C** in the terminal.
+
+Then either:
+- Just close the browser tab (Codespace auto-suspends after 30 min idle), or
+- Press **Ctrl+Shift+P** → type "Stop Current Codespace" → Enter (cleaner)
+
+> ⚠️ Do NOT delete the Codespace — you would lose venv310 and best_model.pt.
+
+---
+
+## Backend Startup Details
+
+### What start.sh does
+
+```bash
+cd /workspaces/dermascan-health/backend
+source venv310/bin/activate   # activates Python 3.10 environment
+python main.py                # starts FastAPI on port 8000 with hot reload
+```
+
+### Why Python 3.10 specifically
+
+PyRadiomics 3.0.1 requires:
+- Python 3.10 (not 3.11, not 3.12)
+- NumPy 1.26.4 (not 2.x — PyRadiomics was compiled against NumPy 1.x ABI)
+
+The Codespace default is Python 3.12, which is why we created a separate `venv310/` using the deadsnakes PPA.
+
+### Model loading
+
+The first request after startup loads `best_model.pt` (177MB ResNetUNetV4) into CPU memory. This takes 30–90 seconds. All subsequent requests are fast (5–15 seconds for full pipeline including PyRadiomics).
+
+### What the full pipeline does per request
+
+1. **preprocess** — decode image bytes → resize to 384×384 → normalize
+2. **model inference** — ResNetUNetV4 forward pass → sigmoid → binary mask at 0.5 threshold
+3. **post-process** — resize mask to original dimensions → keep largest connected component
+4. **overlay** — blend teal (#0B6E6E) at 40% opacity over lesion region + draw contour
+5. **feature extraction** — ABCDE asymmetry, border, color, texture, evolution + PyRadiomics (firstorder, shape2D, GLCM, GLRLM, GLSZM, NGTDM)
+6. **PDF generation** — ReportLab A4 PDF with both images, 4 feature tables, rule-based recommendation
+7. **response** — JSON with overlay (base64 PNG), mask (base64 PNG), feature_summary dict, report_pdf (base64 PDF), lesion_area_pct
+
+---
+
+## What Is and Is Not Saved in GitHub
+
+### ✅ Saved in GitHub — safe forever
+
+```
+backend/main.py
+backend/model.py
+backend/segmentation.py
+backend/features.py
+backend/report.py
+backend/requirements.txt
+backend/start.sh
+.devcontainer/devcontainer.json
+.devcontainer/setup.sh
+.gitignore
+README.md
+src/          (all React frontend code)
+supabase/     (Supabase schema)
+package.json
+```
+
+### ❌ NOT in GitHub — keep local copies
+
+| File | Size | Why not in GitHub | What to do if lost |
+|---|---|---|---|
+| `backend/best_model.pt` | 177MB | Too large for git | Re-upload manually via Codespace file explorer |
+| `backend/venv310/` | ~3GB | Generated files, rebuilds automatically | Run `setup.sh` or install manually |
+
+### Where to keep your best_model.pt backup
+
+Keep a copy on your local computer. To re-upload to Codespaces:
+1. Open Codespace
+2. In the file explorer left panel, navigate to `backend/`
+3. Right-click → **Upload**
+4. Select `best_model.pt`
+
+---
+
+## Troubleshooting Common Issues
+
+### "Failed to fetch" in Lovable
+
+**Cause:** Port 8000 is set to Private, or backend isn't running, or URL is outdated.
+
+**Fix:**
+1. Check server is running: look for `Application startup complete.` in terminal
+2. Check PORTS tab: port 8000 must show **Public**
+3. Re-copy the URL and re-paste into Lovable chat
+
+### "Address already in use" when starting server
+
+**Cause:** Previous server process still running.
+
+**Fix:**
+```bash
+pkill -f "python main.py" && sleep 2 && python main.py
+```
+
+### Analysis takes very long (>2 min)
+
+**Cause:** PyRadiomics initializing for the first time, or model loading.
+
+**Expected timing:**
+- First request: 60–120 seconds (model load + PyRadiomics init)
+- Subsequent requests: 10–30 seconds (cached model, warm extractor)
+
+### "No space left on device"
+
+**Cause:** Codespace disk full (32GB limit).
+
+**Fix:**
+```bash
+pip cache purge
+docker system prune -f 2>/dev/null || true
+df -h /
+```
+
+### PyRadiomics import fails
+
+**Cause:** Wrong Python version or NumPy 2.x.
+
+**Fix:**
+```bash
+source venv310/bin/activate
+python --version    # must show 3.10.x
+python -c "import numpy; print(numpy.__version__)"  # must show 1.26.4
+```
+
+If broken:
+```bash
+pip install numpy==1.26.4 --force-reinstall
+pip install pyradiomics==3.0.1 --no-build-isolation --force-reinstall
+```
+
+### Codespace was deleted accidentally
+
+**Fix:**
+1. Create new Codespace from GitHub repo
+2. Wait for devcontainer setup.sh to run (installs everything automatically — 10–15 min)
+3. Re-upload `best_model.pt` manually via file explorer
+4. Run `bash start.sh`
+
+---
+
+## API Endpoints Reference
+
+### GET /health
+
+Returns backend status.
+
+**Response:**
+```json
+{"status": "ok", "message": "DermaScan AI backend is running"}
+```
+
+---
+
+### POST /analyze/clinician
+
+Full pipeline for clinician dermoscopy analysis.
+
+**Request:** `multipart/form-data` with field `image` (JPG or PNG, max 20MB)
+
+**Response:**
+```json
+{
+  "overlay_image": "data:image/png;base64,...",
+  "mask_image": "data:image/png;base64,...",
+  "lesion_area_pct": 9.15,
+  "prediction": "Pending classifier",
+  "confidence": null,
+  "recommendation": "Segmentation and feature extraction complete. Classification pending.",
+  "feature_summary": {
+    "asymmetry": 0.999,
+    "border_irregularity": 1.419,
+    "n_colors": 3,
+    "solidity": 0.985,
+    "lesion_area_pct": 9.15,
+    "major_axis": 103.2,
+    "minor_axis": 194.8,
+    "eccentricity": 0.0,
+    "glcm_contrast": 0.472,
+    "lbp_entropy": 0.0
+  },
+  "report_pdf": "data:application/pdf;base64,...",
+  "report_ready": true
+}
+```
+
+---
+
+### POST /analyze/patient
+
+Simplified risk assessment for patients.
+
+**Request:** `multipart/form-data` with field `image` (JPG or PNG, max 20MB)
+
+**Response:**
+```json
+{
+  "risk_level": "high",
+  "confidence": 0.595,
+  "lesion_area_pct": 14.5,
+  "recommendation": "The lesion appears significant. Please consult a dermatologist.",
+  "should_consult": true
+}
+```
+
+Risk levels: `"low"` (area < 5%), `"moderate"` (5–15%), `"high"` (> 15%)
+
+> Note: Until the classifier is integrated, risk is based on lesion area as a proxy. Will be replaced with true 3-class classification (melanoma / seborrheic keratosis / nevi) in Phase 4.
+
+---
+
+## Phase Roadmap
+
+### ✅ Phase 1 — Foundation
+- Supabase project created with profiles, cases, appointments tables + RLS policies
+- Lovable frontend generated with all pages and navigation
+- Email authentication working (signup, login, role selection)
+- All pages created: Landing, Login, Register, Patient Dashboard, Clinician Dashboard, Analyze Image (both portals), Patient Cases, Appointments, Find Specialist, Book Appointment, Account Settings
+
+### ✅ Phase 2 — Segmentation Connected
+- GitHub Codespace opened on the repo
+- Python 3.10 venv created with all packages
+- ResNetUNetV4 model loaded from best_model.pt
+- FastAPI backend running on port 8000
+- `/analyze/clinician` endpoint returns teal overlay
+- Frontend displays original + overlay side by side
+- Full pipeline tested and confirmed working
+
+### ✅ Phase 3 — Feature Extraction + PDF Report
+- PyRadiomics + SimpleITK installed in venv310
+- features.py extracts: ABCDE asymmetry, border irregularity, color analysis (RGB/HSV/LAB), GLCM texture, LBP, Gabor, GLRLM, Hu moments, Fourier descriptors, PyRadiomics (firstorder + shape2D + GLCM + GLRLM + GLSZM + NGTDM)
+- report.py generates professional A4 PDF with both images, 4 feature tables, recommendation
+- Frontend shows feature summary card with 10 key values
+- Download Report button triggers PDF download in browser
+- devcontainer.json + setup.sh added for automatic environment recreation
+
+### ⏳ Phase 4 — Classifier Integration
+- Awaiting finalized classifier code from Kaggle
+- Will add classifier.py to backend pipeline
+- Prediction (melanoma / SK / nevi) + confidence score displayed in UI
+- Classifier result added to PDF report
+
+### ⏳ Phase 5 — Map + Booking + Email
+- Google Maps integration for nearest clinics
+- Appointment booking system fully functional
+- Email notifications to clinician and patient on booking
+- Web scraping for unregistered clinician contact info
+
+### ⏳ Phase 6 — Patient History + Case Storage
+- Each analysis saved to Supabase cases table
+- Clinician can browse full patient history
+- Images stored in Supabase storage bucket
+- Report PDFs attached to case records
