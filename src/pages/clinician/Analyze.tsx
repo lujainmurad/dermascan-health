@@ -4,15 +4,45 @@ import Navbar from '@/components/Navbar';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Upload, Loader2, AlertTriangle, Download } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://supreme-space-meme-x5wgrj6ppwr739qr4-8000.app.github.dev';
+
+interface FeatureSummary {
+  asymmetry: number;
+  border_irregularity: number;
+  n_colors: number;
+  solidity: number;
+  lesion_area_pct: number;
+  major_axis: number;
+  minor_axis: number;
+  eccentricity: number;
+  glcm_contrast: number;
+  lbp_entropy: number;
+}
 
 interface AnalysisResult {
   prediction: string;
   confidence: number;
-  overlay_image: string; // base64 or URL
+  overlay_image: string;
   features?: Record<string, any>;
+  feature_summary?: FeatureSummary;
+  report_pdf?: string;
+  report_ready?: boolean;
 }
+
+const featureLabels: Record<keyof FeatureSummary, string> = {
+  asymmetry: 'Asymmetry',
+  border_irregularity: 'Border Irregularity',
+  n_colors: 'Number of Colors',
+  solidity: 'Solidity',
+  lesion_area_pct: 'Lesion Area %',
+  major_axis: 'Major Axis',
+  minor_axis: 'Minor Axis',
+  eccentricity: 'Eccentricity',
+  glcm_contrast: 'GLCM Contrast',
+  lbp_entropy: 'LBP Entropy',
+};
 
 const ClinicianAnalyze = () => {
   const { user } = useAuth();
@@ -121,9 +151,47 @@ const ClinicianAnalyze = () => {
                       </div>
                     )}
                   </div>
-                  <Button variant="outline" disabled className="w-full">
-                    <Download className="mr-2 h-4 w-4" /> Download Report — Coming Soon
-                  </Button>
+
+                  {result.feature_summary && (
+                    <Card>
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-lg">Feature Summary</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+                          {(Object.keys(featureLabels) as (keyof FeatureSummary)[]).map((key) => (
+                            <div key={key} className="rounded-lg bg-muted p-3 text-center">
+                              <p className="text-xs text-muted-foreground mb-1">{featureLabels[key]}</p>
+                              <p className="font-semibold text-foreground">
+                                {typeof result.feature_summary![key] === 'number'
+                                  ? result.feature_summary![key].toFixed(3)
+                                  : String(result.feature_summary![key])}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {result.report_ready && result.report_pdf ? (
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => {
+                        const link = document.createElement('a');
+                        link.href = result.report_pdf!;
+                        link.download = 'dermascan_report.pdf';
+                        link.click();
+                      }}
+                    >
+                      <Download className="mr-2 h-4 w-4" /> Download Report
+                    </Button>
+                  ) : (
+                    <Button variant="outline" disabled className="w-full">
+                      <Download className="mr-2 h-4 w-4" /> Download Report — Coming Soon
+                    </Button>
+                  )}
                 </div>
               )}
             </div>
