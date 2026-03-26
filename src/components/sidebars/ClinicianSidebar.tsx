@@ -14,7 +14,8 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from '@/components/ui/sidebar';
-import { LayoutDashboard, Users, Calendar, Settings } from 'lucide-react';
+import { LayoutDashboard, Users, Calendar, Settings, LogOut } from 'lucide-react';
+import logo from '@/assets/dermascan-logo.png';
 
 const navItems = [
   { title: 'Dashboard', url: '/clinician/dashboard', icon: LayoutDashboard },
@@ -24,7 +25,7 @@ const navItems = [
 ];
 
 export function ClinicianSidebar() {
-  const { profile } = useAuth();
+  const { profile, signOut } = useAuth();
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
   const navigate = useNavigate();
@@ -34,19 +35,22 @@ export function ClinicianSidebar() {
     ? profile.full_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
     : profile?.email?.[0]?.toUpperCase() || 'C';
 
+  const handleSignOut = async () => {
+    await signOut();
+    navigate('/');
+  };
+
   return (
     <Sidebar collapsible="icon" className="border-r-0">
       <SidebarHeader className="p-4">
         <div
-          className="flex items-center gap-3 cursor-pointer"
+          className="flex items-center gap-3 cursor-pointer overflow-hidden"
           onClick={() => navigate('/clinician/dashboard')}
         >
-          <div className="w-9 h-9 rounded-lg clinical-gradient flex items-center justify-center flex-shrink-0">
-            <span className="text-sidebar-primary-foreground font-bold text-sm tracking-tight">Cl</span>
-          </div>
+          <img src={logo} alt="DermaScan" className="w-9 h-9 rounded-lg flex-shrink-0" />
           {!collapsed && (
-            <span className="font-display font-bold text-base text-sidebar-accent-foreground tracking-tight">
-              Claritas
+            <span className="font-bold text-base text-sidebar-accent-foreground tracking-tight whitespace-nowrap">
+              DermaScan
             </span>
           )}
         </div>
@@ -83,8 +87,17 @@ export function ClinicianSidebar() {
       </SidebarContent>
 
       <SidebarFooter className="p-3">
+        {!collapsed && (
+          <button
+            onClick={handleSignOut}
+            className="flex items-center gap-3 rounded-lg px-2 py-2 w-full text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-destructive transition-colors mb-1"
+          >
+            <LogOut className="h-4 w-4 flex-shrink-0" />
+            <span className="text-xs font-medium">Sign Out</span>
+          </button>
+        )}
         <div
-          className="flex items-center gap-3 rounded-lg px-2 py-2 cursor-pointer hover:bg-sidebar-accent/50 transition-colors"
+          className="flex items-center gap-3 rounded-lg px-2 py-2 cursor-pointer hover:bg-sidebar-accent/50 transition-colors overflow-hidden"
           onClick={() => navigate('/settings')}
         >
           <Avatar className="h-8 w-8 flex-shrink-0">

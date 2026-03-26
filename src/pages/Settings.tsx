@@ -7,8 +7,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, AlertCircle, LogOut, Clock } from 'lucide-react';
+import { Loader2, AlertCircle, LogOut, Clock, CalendarIcon } from 'lucide-react';
+import { format, differenceInYears } from 'date-fns';
+import { cn } from '@/lib/utils';
+import { motion } from 'framer-motion';
 import AppLayout from '@/components/layouts/AppLayout';
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -42,6 +47,8 @@ const Settings = () => {
     hospital_name: '',
     specialty: '',
     city: '',
+    date_of_birth: '' as string,
+    sex: '' as string,
   });
 
   const [weekGrid, setWeekGrid] = useState<DayConfig[]>(
@@ -58,6 +65,8 @@ const Settings = () => {
         hospital_name: profile.hospital_name || '',
         specialty: profile.specialty || '',
         city: profile.city || '',
+        date_of_birth: (profile as any).date_of_birth || '',
+        sex: (profile as any).sex || '',
       });
       if (profile.role === 'clinician') {
         fetchAvailability();
@@ -95,8 +104,6 @@ const Settings = () => {
   const saveAvailability = async () => {
     if (!profile) return;
     setSavingAvail(true);
-
-    // Delete all existing, then insert enabled days
     await supabase.from('clinician_availability').delete().eq('clinician_id', profile.user_id);
 
     const inserts = weekGrid
@@ -144,6 +151,11 @@ const Settings = () => {
       }
     }
 
+    if (profile.role === 'patient') {
+      updateData.date_of_birth = form.date_of_birth || null;
+      updateData.sex = form.sex || null;
+    }
+
     const { error } = await supabase
       .from('profiles')
       .update(updateData)
@@ -163,56 +175,96 @@ const Settings = () => {
     navigate('/');
   };
 
+  const dobDate = form.date_of_birth ? new Date(form.date_of_birth + 'T00:00:00') : undefined;
+
   return (
     <AppLayout>
-      <div className="max-w-2xl">
-        <h1 className="text-2xl font-display font-bold text-foreground mb-1 tracking-tight">Account Settings</h1>
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="max-w-2xl">
+        <h1 className="text-2xl font-bold text-foreground mb-1 tracking-tight">Account Settings</h1>
         <p className="text-sm text-muted-foreground mb-8">Manage your profile and preferences.</p>
 
         <div className="clinical-card p-6 space-y-5">
           <div className="grid sm:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label className="text-xs text-muted-foreground uppercase tracking-wider">Email</Label>
+              <Label className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Email</Label>
               <Input value={profile?.email || ''} disabled className="bg-muted" />
             </div>
             <div className="space-y-2">
-              <Label className="text-xs text-muted-foreground uppercase tracking-wider">Role</Label>
+              <Label className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Role</Label>
               <Input value={profile?.role === 'clinician' ? 'Clinician' : 'Patient'} disabled className="bg-muted capitalize" />
             </div>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="full_name">Full Name</Label>
+            <Label htmlFor="full_name" className="font-semibold">Full Name</Label>
             <Input id="full_name" value={form.full_name} onChange={e => setForm(f => ({ ...f, full_name: e.target.value }))} />
           </div>
           <div className="grid sm:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="phone">Phone</Label>
+              <Label htmlFor="phone" className="font-semibold">Phone</Label>
               <Input id="phone" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="city">City</Label>
+              <Label htmlFor="city" className="font-semibold">City</Label>
               <Input id="city" value={form.city} onChange={e => setForm(f => ({ ...f, city: e.target.value }))} />
             </div>
           </div>
+
+          {profile?.role === 'patient' && (
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="font-semibold">Date of Birth</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !dobDate && "text-muted-foreground")}>
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {dobDate ? format(dobDate, 'PPP') : 'Select date'}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={dobDate}
+                      onSelect={(d) => setForm(f => ({ ...f, date_of_birth: d ? format(d, 'yyyy-MM-dd') : '' }))}
+                      disabled={(d) => d > new Date() || d < new Date(1905, 0, 1)}
+                      initialFocus
+                      className={cn("p-3 pointer-events-auto")}
+                      captionLayout="dropdown-buttons"
+                      fromYear={1905}
+                      toYear={new Date().getFullYear()}
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+              <div className="space-y-2">
+                <Label className="font-semibold">Sex</Label>
+                <Select value={form.sex} onValueChange={(v) => setForm(f => ({ ...f, sex: v }))}>
+                  <SelectTrigger><SelectValue placeholder="Select sex" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Male">Male</SelectItem>
+                    <SelectItem value="Female">Female</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
 
           {profile?.role === 'clinician' && (
             <>
               <div className="grid sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="hospital">Hospital</Label>
+                  <Label htmlFor="hospital" className="font-semibold">Hospital</Label>
                   <Input id="hospital" value={form.hospital_name} onChange={e => setForm(f => ({ ...f, hospital_name: e.target.value }))} />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="specialty">Specialty</Label>
+                  <Label htmlFor="specialty" className="font-semibold">Specialty</Label>
                   <Input id="specialty" value={form.specialty} onChange={e => setForm(f => ({ ...f, specialty: e.target.value }))} />
                 </div>
               </div>
-
               {!profile.verified && (
-                <div className="rounded-lg border border-warning/30 bg-warning/5 p-4 flex gap-3">
+                <div className="rounded-xl border border-warning/30 bg-warning/5 p-4 flex gap-3">
                   <AlertCircle className="h-5 w-5 text-warning flex-shrink-0 mt-0.5" />
                   <div>
-                    <p className="font-medium text-sm text-foreground">Complete Your Profile</p>
+                    <p className="font-semibold text-sm text-foreground">Complete Your Profile</p>
                     <p className="text-xs text-muted-foreground mt-1">
                       Fill in all fields to appear in patient search results.
                     </p>
@@ -222,7 +274,7 @@ const Settings = () => {
             </>
           )}
 
-          <Button onClick={handleSave} disabled={loading} className="w-full">
+          <Button onClick={handleSave} disabled={loading} className="w-full gradient-primary text-primary-foreground shadow-md hover:shadow-lg active:scale-[0.98] transition-all">
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Save Changes
           </Button>
         </div>
@@ -232,7 +284,7 @@ const Settings = () => {
           <div className="clinical-card p-6 mt-6 space-y-5">
             <div className="flex items-center gap-2">
               <Clock className="h-5 w-5 text-primary" />
-              <h2 className="text-lg font-display font-semibold text-foreground tracking-tight">Weekly Availability</h2>
+              <h2 className="text-lg font-bold text-foreground tracking-tight">Weekly Availability</h2>
             </div>
             <p className="text-sm text-muted-foreground">Toggle days and set your working hours. Patients book 1-hour slots within these windows.</p>
 
@@ -242,7 +294,7 @@ const Settings = () => {
               <>
                 <div className="grid grid-cols-7 gap-2">
                   {DAY_NAMES.map((name, i) => (
-                    <div key={i} className={`rounded-lg border p-3 text-center transition-colors ${weekGrid[i].enabled ? 'border-primary bg-accent' : 'border-border bg-muted/50'}`}>
+                    <div key={i} className={`rounded-xl border p-3 text-center transition-colors ${weekGrid[i].enabled ? 'border-primary bg-secondary' : 'border-border bg-muted/50'}`}>
                       <p className="text-xs font-semibold text-foreground mb-2">{name}</p>
                       <Switch
                         checked={weekGrid[i].enabled}
@@ -272,7 +324,7 @@ const Settings = () => {
                     </div>
                   ))}
                 </div>
-                <Button onClick={saveAvailability} disabled={savingAvail} className="w-full">
+                <Button onClick={saveAvailability} disabled={savingAvail} className="w-full gradient-primary text-primary-foreground shadow-md hover:shadow-lg active:scale-[0.98] transition-all">
                   {savingAvail && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Save Availability
                 </Button>
               </>
@@ -286,7 +338,7 @@ const Settings = () => {
             <LogOut className="mr-2 h-4 w-4" /> Sign Out
           </Button>
         </div>
-      </div>
+      </motion.div>
     </AppLayout>
   );
 };

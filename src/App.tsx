@@ -13,6 +13,7 @@ import VerifyEmail from "./pages/VerifyEmail";
 import Settings from "./pages/Settings";
 import PatientDashboard from "./pages/patient/Dashboard";
 import PatientAnalyze from "./pages/patient/Analyze";
+import PatientAssistant from "./pages/patient/Assistant";
 import FindSpecialist from "./pages/patient/FindSpecialist";
 import BookAppointment from "./pages/patient/BookAppointment";
 import PatientAppointments from "./pages/patient/Appointments";
@@ -43,6 +44,7 @@ const App = () => (
             {/* Patient Routes */}
             <Route path="/patient/dashboard" element={<ProtectedRoute requiredRole="patient"><PatientDashboard /></ProtectedRoute>} />
             <Route path="/patient/analyze" element={<ProtectedRoute requiredRole="patient"><PatientAnalyze /></ProtectedRoute>} />
+            <Route path="/patient/assistant" element={<ProtectedRoute requiredRole="patient"><PatientAssistant /></ProtectedRoute>} />
             <Route path="/patient/find-specialist" element={<ProtectedRoute requiredRole="patient"><FindSpecialist /></ProtectedRoute>} />
             <Route path="/patient/book-appointment" element={<ProtectedRoute requiredRole="patient"><BookAppointment /></ProtectedRoute>} />
             <Route path="/patient/appointments" element={<ProtectedRoute requiredRole="patient"><PatientAppointments /></ProtectedRoute>} />

@@ -130,12 +130,14 @@ export type Database = {
           avatar_url: string | null
           city: string | null
           created_at: string
+          date_of_birth: string | null
           email: string | null
           full_name: string | null
           hospital_name: string | null
           id: string
           phone: string | null
           role: Database["public"]["Enums"]["app_role"]
+          sex: string | null
           specialty: string | null
           updated_at: string
           user_id: string
@@ -145,12 +147,14 @@ export type Database = {
           avatar_url?: string | null
           city?: string | null
           created_at?: string
+          date_of_birth?: string | null
           email?: string | null
           full_name?: string | null
           hospital_name?: string | null
           id?: string
           phone?: string | null
           role: Database["public"]["Enums"]["app_role"]
+          sex?: string | null
           specialty?: string | null
           updated_at?: string
           user_id: string
@@ -160,12 +164,14 @@ export type Database = {
           avatar_url?: string | null
           city?: string | null
           created_at?: string
+          date_of_birth?: string | null
           email?: string | null
           full_name?: string | null
           hospital_name?: string | null
           id?: string
           phone?: string | null
           role?: Database["public"]["Enums"]["app_role"]
+          sex?: string | null
           specialty?: string | null
           updated_at?: string
           user_id?: string

@@ -14,6 +14,8 @@ interface Profile {
   city: string | null;
   verified: boolean;
   avatar_url: string | null;
+  date_of_birth: string | null;
+  sex: string | null;
 }
 
 interface AuthContextType {
@@ -21,7 +23,7 @@ interface AuthContextType {
   session: Session | null;
   profile: Profile | null;
   loading: boolean;
-  signUp: (email: string, password: string, role: 'patient' | 'clinician') => Promise<{ error: any }>;
+  signUp: (email: string, password: string, role: 'patient' | 'clinician', extra?: { date_of_birth?: string; sex?: string }) => Promise<{ error: any }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -72,15 +74,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => subscription.unsubscribe();
   }, []);
 
-  const signUp = async (email: string, password: string, role: 'patient' | 'clinician') => {
-    const { error } = await supabase.auth.signUp({
+  const signUp = async (email: string, password: string, role: 'patient' | 'clinician', extra?: { date_of_birth?: string; sex?: string }) => {
+    const { error, data } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        data: { role },
+        data: { role, ...(extra || {}) },
         emailRedirectTo: window.location.origin,
       },
     });
+    // After signup, update profile with extra fields
+    if (!error && data.user && extra) {
+      await supabase.from('profiles').update({
+        date_of_birth: extra.date_of_birth || null,
+        sex: extra.sex || null,
+      } as any).eq('user_id', data.user.id);
+    }
     return { error };
   };
 
