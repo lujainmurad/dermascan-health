@@ -6,7 +6,9 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Upload, Loader2, AlertTriangle, Download, Save } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
+import { motion } from 'framer-motion';
 import AppLayout from '@/components/layouts/AppLayout';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://supreme-space-meme-x5wgrj6ppwr739qr4-8000.app.github.dev';
@@ -27,11 +29,13 @@ interface FeatureSummary {
 interface AnalysisResult {
   prediction: string;
   confidence: number;
+  recommendation: string;
   overlay_image: string;
   features?: Record<string, any>;
   feature_summary?: FeatureSummary;
   report_pdf?: string;
   report_ready?: boolean;
+  probabilities?: { Nevus: number; Melanoma: number; 'Seborrheic Keratosis': number };
 }
 
 const featureLabels: Record<keyof FeatureSummary, string> = {
@@ -45,6 +49,12 @@ const featureLabels: Record<keyof FeatureSummary, string> = {
   eccentricity: 'Eccentricity',
   glcm_contrast: 'GLCM Contrast',
   lbp_entropy: 'LBP Entropy',
+};
+
+const predictionColors: Record<string, string> = {
+  Melanoma: 'bg-destructive text-destructive-foreground',
+  'Seborrheic Keratosis': 'bg-warning text-warning-foreground',
+  Nevus: 'bg-success text-success-foreground',
 };
 
 const ClinicianAnalyze = () => {
@@ -83,7 +93,30 @@ const ClinicianAnalyze = () => {
     try {
       const formData = new FormData();
       formData.append('image', image);
-      const response = await fetch(`${BACKEND_URL}/analyze/clinician`, { method: 'POST', body: formData });
+
+      const headers: Record<string, string> = {};
+      // Fetch patient DOB and Sex if linked
+      if (patientId) {
+        const { data: patientProfile } = await supabase
+          .from('profiles')
+          .select('date_of_birth, sex')
+          .eq('user_id', patientId)
+          .single();
+        if (patientProfile) {
+          if ((patientProfile as any).date_of_birth) {
+            headers['X-Patient-DOB'] = (patientProfile as any).date_of_birth;
+          }
+          if ((patientProfile as any).sex) {
+            headers['X-Patient-Sex'] = (patientProfile as any).sex;
+          }
+        }
+      }
+
+      const response = await fetch(`${BACKEND_URL}/analyze/clinician`, {
+        method: 'POST',
+        body: formData,
+        headers,
+      });
       if (!response.ok) throw new Error('Analysis failed');
       const data: AnalysisResult = await response.json();
       setResult(data);
@@ -97,12 +130,10 @@ const ClinicianAnalyze = () => {
   const handleSaveCase = async () => {
     if (!result || !user || !image || !patientId) return;
     setSaving(true);
-
     try {
       const fileName = `${user.id}/${Date.now()}_${image.name}`;
       const { error: uploadError } = await supabase.storage.from('case-images').upload(fileName, image);
       if (uploadError) throw uploadError;
-
       const { data: { publicUrl } } = supabase.storage.from('case-images').getPublicUrl(fileName);
 
       const { error: insertError } = await supabase.from('cases').insert({
@@ -114,6 +145,7 @@ const ClinicianAnalyze = () => {
         confidence: result.confidence,
         features_summary: result.feature_summary ? (result.feature_summary as any) : null,
         report_pdf: result.report_pdf || null,
+        recommendation: result.recommendation || null,
         status: 'reviewed',
       });
 
@@ -136,23 +168,26 @@ const ClinicianAnalyze = () => {
     link.click();
   };
 
+  const predClass = result?.prediction || '';
+  const badgeColor = predictionColors[predClass] || 'bg-muted text-muted-foreground';
+
   return (
     <AppLayout>
-      <div className="max-w-4xl">
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="max-w-4xl">
         <div className="mb-6">
-          <h1 className="text-2xl font-display font-bold text-foreground tracking-tight">Image Analysis</h1>
+          <h1 className="text-2xl font-bold text-foreground tracking-tight">Image Analysis</h1>
           {patientId && (
             <p className="text-sm text-muted-foreground mt-1">
-              Analyzing for <span className="font-medium text-foreground">{patientName}</span>
+              Analyzing for <span className="font-semibold text-foreground">{patientName}</span>
             </p>
           )}
         </div>
 
         {!BACKEND_URL && (
-          <div className="rounded-lg border border-warning/30 bg-warning/5 p-4 flex gap-3 mb-6">
+          <div className="rounded-xl border border-warning/30 bg-warning/5 p-4 flex gap-3 mb-6">
             <AlertTriangle className="h-5 w-5 text-warning flex-shrink-0" />
             <div>
-              <p className="font-medium text-sm text-foreground">Backend Not Connected</p>
+              <p className="font-semibold text-sm text-foreground">Backend Not Connected</p>
               <p className="text-xs text-muted-foreground mt-1">Set VITE_BACKEND_URL to enable AI analysis.</p>
             </div>
           </div>
@@ -172,53 +207,77 @@ const ClinicianAnalyze = () => {
               {result ? (
                 <div className="grid md:grid-cols-2 gap-4">
                   <div>
-                    <p className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wider">Original</p>
-                    <img src={preview} alt="Original" className="rounded-lg w-full object-contain bg-muted" />
+                    <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wider">Original</p>
+                    <img src={preview} alt="Original" className="rounded-xl w-full object-contain bg-muted" />
                   </div>
                   <div>
-                    <p className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wider">Segmentation</p>
-                    <img src={result.overlay_image} alt="Segmentation overlay" className="rounded-lg w-full object-contain bg-muted" />
+                    <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wider">Segmentation</p>
+                    <img src={result.overlay_image} alt="Segmentation overlay" className="rounded-xl w-full object-contain bg-muted" />
                   </div>
                 </div>
               ) : (
-                <img src={preview} alt="Preview" className="rounded-lg w-full max-h-96 object-contain bg-muted" />
+                <img src={preview} alt="Preview" className="rounded-xl w-full max-h-96 object-contain bg-muted" />
               )}
 
               <div className="flex gap-3">
-                <Button onClick={handleAnalyze} disabled={analyzing || !BACKEND_URL} className="flex-1">
+                <Button onClick={handleAnalyze} disabled={analyzing || !BACKEND_URL} className="flex-1 gradient-primary text-primary-foreground shadow-md hover:shadow-lg active:scale-[0.98] transition-all">
                   {analyzing ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Analyzing...</> : 'Analyze'}
                 </Button>
                 <Button variant="outline" onClick={() => { setPreview(null); setImage(null); setResult(null); setSaved(false); }}>Clear</Button>
               </div>
 
               {result && (
-                <div className="space-y-4 mt-4">
-                  <div className="rounded-xl bg-accent p-5">
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="font-display font-semibold text-foreground">{result.prediction}</p>
-                      <p className="text-sm text-muted-foreground">Confidence: {(result.confidence * 100).toFixed(1)}%</p>
-                    </div>
-                    {result.features && (
-                      <div className="mt-3 text-sm text-muted-foreground">
-                        <p className="font-medium text-foreground mb-1">Extracted Features:</p>
-                        {Object.entries(result.features).map(([k, v]) => (
-                          <p key={k}>{k}: {String(v)}</p>
-                        ))}
-                      </div>
+                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-4 mt-4">
+                  {/* Prediction Badge */}
+                  <div className="rounded-xl bg-card border border-border p-6 text-center">
+                    <Badge className={`${badgeColor} text-lg px-6 py-2 font-bold mb-3`}>
+                      {result.prediction}
+                    </Badge>
+                    <p className="text-2xl font-bold text-foreground">{(result.confidence * 100).toFixed(1)}%</p>
+                    <p className="text-xs text-muted-foreground mt-1">Confidence</p>
+                    {result.recommendation && (
+                      <p className="text-sm text-foreground mt-4 bg-muted rounded-lg p-3">{result.recommendation}</p>
                     )}
                   </div>
 
+                  {/* Probabilities */}
+                  {result.probabilities && (
+                    <Card>
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-base font-bold">Class Probabilities</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        {Object.entries(result.probabilities).map(([cls, prob]) => {
+                          const pct = (prob * 100).toFixed(1);
+                          const barColor = cls === 'Melanoma' ? 'bg-destructive' : cls === 'Seborrheic Keratosis' ? 'bg-warning' : 'bg-success';
+                          return (
+                            <div key={cls}>
+                              <div className="flex justify-between text-sm mb-1">
+                                <span className="font-medium text-foreground">{cls}</span>
+                                <span className="text-muted-foreground">{pct}%</span>
+                              </div>
+                              <div className="h-2 bg-muted rounded-full overflow-hidden">
+                                <div className={`h-full ${barColor} rounded-full transition-all duration-500`} style={{ width: `${pct}%` }} />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {/* Feature Summary */}
                   {result.feature_summary && (
                     <Card>
                       <CardHeader className="pb-3">
-                        <CardTitle className="text-base">Feature Summary</CardTitle>
+                        <CardTitle className="text-base font-bold">Feature Summary</CardTitle>
                       </CardHeader>
                       <CardContent>
                         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
                           {(Object.keys(featureLabels) as (keyof FeatureSummary)[]).map((key) => (
-                            <div key={key} className="rounded-lg bg-muted p-3 text-center">
+                            <div key={key} className="rounded-xl bg-muted p-3 text-center">
                               <p className="text-xs text-muted-foreground mb-1">{featureLabels[key]}</p>
-                              <p className="font-semibold text-foreground text-sm">
+                              <p className="font-bold text-foreground text-sm">
                                 {typeof result.feature_summary![key] === 'number'
                                   ? result.feature_summary![key].toFixed(3)
                                   : String(result.feature_summary![key])}
@@ -232,7 +291,7 @@ const ClinicianAnalyze = () => {
 
                   {/* Save Case */}
                   {patientId && (
-                    <Button onClick={handleSaveCase} disabled={saving || saved} className="w-full">
+                    <Button onClick={handleSaveCase} disabled={saving || saved} className="w-full gradient-primary text-primary-foreground shadow-md">
                       {saving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</>
                         : saved ? <><Save className="mr-2 h-4 w-4" /> Saved</>
                         : <><Save className="mr-2 h-4 w-4" /> Save Case</>}
@@ -248,12 +307,12 @@ const ClinicianAnalyze = () => {
                       <Download className="mr-2 h-4 w-4" /> Download Report — Coming Soon
                     </Button>
                   )}
-                </div>
+                </motion.div>
               )}
             </div>
           )}
         </div>
-      </div>
+      </motion.div>
     </AppLayout>
   );
 };
