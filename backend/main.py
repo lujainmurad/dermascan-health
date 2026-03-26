@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from segmentation import run_segmentation_pipeline
 from features import extract_features_from_arrays
+from classifier import classify
 from report import generate_report
 
 logging.getLogger("radiomics").setLevel(logging.ERROR)
@@ -37,11 +38,22 @@ async def analyze_clinician(image: UploadFile = File(...)):
         nparr=np.frombuffer(result["mask_png"],np.uint8)
         mask_clean=cv2.imdecode(nparr,cv2.IMREAD_GRAYSCALE)
         features=extract_features_from_arrays(orig_rgb,mask_clean)
+        age=float(request.headers.get("X-Patient-Age","45") or 45)
+        sex=request.headers.get("X-Patient-Sex","unknown") or "unknown"
+        clf=classify(features,age=age,sex=sex)
+        prediction=clf["prediction"]; confidence=clf["confidence"]
+        risk_level=clf["risk_level"]; probabilities=clf["probabilities"]
+        if prediction=="Melanoma":
+            recommendation="High suspicion of melanoma. Immediate dermatologist referral and biopsy strongly recommended."
+        elif prediction=="Seborrheic Keratosis":
+            recommendation="Features consistent with seborrheic keratosis. Benign lesion — routine monitoring advised."
+        else:
+            recommendation="Features consistent with a benign nevus. Monitor for changes in size, shape, or color."
         nparr2=np.frombuffer(result["overlay_png"],np.uint8)
         overlay_rgb=cv2.cvtColor(cv2.imdecode(nparr2,cv2.IMREAD_COLOR),cv2.COLOR_BGR2RGB)
         pdf_bytes=generate_report(orig_rgb=orig_rgb,overlay_rgb=overlay_rgb,mask_clean=mask_clean,
-                                   features=features,prediction="Pending classifier",
-                                   confidence=None,lesion_area_pct=result["lesion_area_pct"])
+                                   features=features,prediction=prediction,
+                                   confidence=confidence,lesion_area_pct=result["lesion_area_pct"])
         pdf_b64=base64.b64encode(pdf_bytes).decode("utf-8")
         feature_summary={"asymmetry":round(features.get("asym_axis_aligned",0),3),
                          "border_irregularity":round(features.get("border_irregularity",0),3),
@@ -58,8 +70,9 @@ async def analyze_clinician(image: UploadFile = File(...)):
         return JSONResponse({"overlay_image":f"data:image/png;base64,{overlay_b64}",
                              "mask_image":f"data:image/png;base64,{mask_b64}",
                              "lesion_area_pct":result["lesion_area_pct"],
-                             "prediction":"Pending classifier","confidence":None,
-                             "recommendation":"Segmentation and feature extraction complete. Classification pending.",
+                             "prediction":prediction,"confidence":confidence,
+                             "risk_level":risk_level,"probabilities":probabilities,
+                             "recommendation":recommendation,
                              "feature_summary":feature_summary,
                              "report_pdf":f"data:application/pdf;base64,{pdf_b64}",
                              "report_ready":True})
