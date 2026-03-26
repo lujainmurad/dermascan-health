@@ -1,7 +1,7 @@
 import base64, logging
 import numpy as np
 import cv2
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from segmentation import run_segmentation_pipeline
@@ -26,7 +26,7 @@ def health():
     return {"status":"ok","message":"DermaScan AI backend is running"}
 
 @app.post("/analyze/clinician")
-async def analyze_clinician(image: UploadFile = File(...)):
+async def analyze_clinician(image: UploadFile = File(...), request: Request = None):
     if image.content_type not in ("image/jpeg","image/png","image/jpg"):
         raise HTTPException(status_code=400,detail="Only JPEG and PNG accepted.")
     image_bytes=await image.read()
@@ -38,8 +38,19 @@ async def analyze_clinician(image: UploadFile = File(...)):
         nparr=np.frombuffer(result["mask_png"],np.uint8)
         mask_clean=cv2.imdecode(nparr,cv2.IMREAD_GRAYSCALE)
         features=extract_features_from_arrays(orig_rgb,mask_clean)
-        age=float(request.headers.get("X-Patient-Age","45") or 45)
-        sex=request.headers.get("X-Patient-Sex","unknown") or "unknown"
+        from datetime import date as _date
+        age = 45.0
+        sex = "unknown"
+        if request:
+            dob_str = request.headers.get("X-Patient-DOB","")
+            sex = request.headers.get("X-Patient-Sex","unknown") or "unknown"
+            if dob_str:
+                try:
+                    dob = _date.fromisoformat(dob_str)
+                    today = _date.today()
+                    age = float(today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day)))
+                except:
+                    age = 45.0
         clf=classify(features,age=age,sex=sex)
         prediction=clf["prediction"]; confidence=clf["confidence"]
         risk_level=clf["risk_level"]; probabilities=clf["probabilities"]
