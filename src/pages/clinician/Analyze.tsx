@@ -1,17 +1,19 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Upload, Loader2, AlertTriangle, Download, Save } from 'lucide-react';
+import { Upload, Loader2, AlertTriangle, Download, Save, Camera } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { motion } from 'framer-motion';
 import AppLayout from '@/components/layouts/AppLayout';
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://supreme-space-meme-x5wgrj6ppwr739qr4-8000.app.github.dev';
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || '';
 
 interface FeatureSummary {
   asymmetry: number;
@@ -57,20 +59,54 @@ const predictionColors: Record<string, string> = {
   Nevus: 'bg-success text-success-foreground',
 };
 
+interface PatientOption {
+  user_id: string;
+  full_name: string | null;
+  email: string | null;
+}
+
 const ClinicianAnalyze = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [searchParams] = useSearchParams();
-  const patientId = searchParams.get('patientId');
-  const patientName = searchParams.get('patientName') || 'Patient';
+  const patientIdFromUrl = searchParams.get('patientId');
+  const patientNameFromUrl = searchParams.get('patientName') || '';
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
   const [image, setImage] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+
+  // Patient selector for walk-in or linking
+  const [patients, setPatients] = useState<PatientOption[]>([]);
+  const [selectedPatientId, setSelectedPatientId] = useState<string>(patientIdFromUrl || '');
+  const [saveToPatient, setSaveToPatient] = useState(!!patientIdFromUrl);
+
+  // If coming from a patient record, auto-link
+  const isFromPatientRecord = !!patientIdFromUrl;
+
+  useEffect(() => {
+    // Fetch patients the clinician has appointments with
+    if (!user) return;
+    const fetchPatients = async () => {
+      const { data: appts } = await supabase
+        .from('appointments')
+        .select('patient_id')
+        .eq('clinician_id', user.id);
+      const ids = [...new Set((appts || []).map(a => a.patient_id))];
+      if (ids.length === 0) return;
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('user_id, full_name, email')
+        .in('user_id', ids);
+      setPatients((profiles as PatientOption[]) || []);
+    };
+    fetchPatients();
+  }, [user]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -81,6 +117,8 @@ const ClinicianAnalyze = () => {
       setSaved(false);
     }
   };
+
+  const effectivePatientId = selectedPatientId || null;
 
   const handleAnalyze = async () => {
     if (!image || !user) return;
@@ -95,12 +133,11 @@ const ClinicianAnalyze = () => {
       formData.append('image', image);
 
       const headers: Record<string, string> = {};
-      // Fetch patient DOB and Sex if linked
-      if (patientId) {
+      if (effectivePatientId) {
         const { data: patientProfile } = await supabase
           .from('profiles')
           .select('date_of_birth, sex')
-          .eq('user_id', patientId)
+          .eq('user_id', effectivePatientId)
           .single();
         if (patientProfile) {
           if ((patientProfile as any).date_of_birth) {
@@ -120,6 +157,11 @@ const ClinicianAnalyze = () => {
       if (!response.ok) throw new Error('Analysis failed');
       const data: AnalysisResult = await response.json();
       setResult(data);
+
+      // Auto-save if from patient record
+      if (isFromPatientRecord && patientIdFromUrl) {
+        await saveCase(data, patientIdFromUrl);
+      }
     } catch (err: any) {
       toast({ title: 'Analysis Error', description: err.message, variant: 'destructive' });
     } finally {
@@ -127,8 +169,8 @@ const ClinicianAnalyze = () => {
     }
   };
 
-  const handleSaveCase = async () => {
-    if (!result || !user || !image || !patientId) return;
+  const saveCase = async (analysisResult: AnalysisResult, patientId: string | null) => {
+    if (!user || !image) return;
     setSaving(true);
     try {
       const fileName = `${user.id}/${Date.now()}_${image.name}`;
@@ -136,27 +178,35 @@ const ClinicianAnalyze = () => {
       if (uploadError) throw uploadError;
       const { data: { publicUrl } } = supabase.storage.from('case-images').getPublicUrl(fileName);
 
-      const { error: insertError } = await supabase.from('cases').insert({
+      const insertData: any = {
         clinician_id: user.id,
-        patient_id: patientId,
         image_url: publicUrl,
-        overlay_image_url: result.overlay_image || null,
-        prediction_label: result.prediction,
-        confidence: result.confidence,
-        features_summary: result.feature_summary ? (result.feature_summary as any) : null,
-        report_pdf: result.report_pdf || null,
-        recommendation: result.recommendation || null,
+        overlay_image_url: analysisResult.overlay_image || null,
+        prediction_label: analysisResult.prediction,
+        confidence: analysisResult.confidence,
+        features_summary: analysisResult.feature_summary ? (analysisResult.feature_summary as any) : null,
+        report_pdf: analysisResult.report_pdf || null,
+        recommendation: analysisResult.recommendation || null,
         status: 'reviewed',
-      });
+      };
+      if (patientId) {
+        insertData.patient_id = patientId;
+      }
 
+      const { error: insertError } = await supabase.from('cases').insert(insertData);
       if (insertError) throw insertError;
       setSaved(true);
-      toast({ title: 'Case saved', description: 'Analysis results have been saved to the patient record.' });
+      toast({ title: 'Case saved', description: patientId ? 'Saved to patient record.' : 'Saved as standalone case.' });
     } catch (err: any) {
       toast({ title: 'Save Error', description: err.message, variant: 'destructive' });
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleManualSave = () => {
+    if (!result) return;
+    saveCase(result, saveToPatient ? selectedPatientId : null);
   };
 
   const downloadReport = () => {
@@ -171,14 +221,22 @@ const ClinicianAnalyze = () => {
   const predClass = result?.prediction || '';
   const badgeColor = predictionColors[predClass] || 'bg-muted text-muted-foreground';
 
+  const displayPatientName = isFromPatientRecord
+    ? patientNameFromUrl
+    : patients.find(p => p.user_id === selectedPatientId)?.full_name || '';
+
   return (
     <AppLayout>
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="max-w-4xl">
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-foreground tracking-tight">Image Analysis</h1>
-          {patientId && (
+          {isFromPatientRecord ? (
             <p className="text-sm text-muted-foreground mt-1">
-              Analyzing for <span className="font-semibold text-foreground">{patientName}</span>
+              Analyzing for <span className="font-semibold text-foreground">{patientNameFromUrl}</span> — results auto-save to their record.
+            </p>
+          ) : (
+            <p className="text-sm text-muted-foreground mt-1">
+              Analyze a dermoscopy image. Optionally link to a patient record.
             </p>
           )}
         </div>
@@ -193,14 +251,55 @@ const ClinicianAnalyze = () => {
           </div>
         )}
 
+        {/* Patient selector (only when NOT from patient record) */}
+        {!isFromPatientRecord && (
+          <div className="clinical-card p-4 mb-4">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="linkPatient"
+                  checked={saveToPatient}
+                  onChange={e => setSaveToPatient(e.target.checked)}
+                  className="rounded border-border"
+                />
+                <Label htmlFor="linkPatient" className="text-sm font-medium cursor-pointer">Link to patient record</Label>
+              </div>
+              {saveToPatient && (
+                <Select value={selectedPatientId} onValueChange={setSelectedPatientId}>
+                  <SelectTrigger className="w-[250px]">
+                    <SelectValue placeholder="Select patient..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {patients.map(p => (
+                      <SelectItem key={p.user_id} value={p.user_id}>
+                        {p.full_name || p.email || 'Unknown'}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+          </div>
+        )}
+
         <div className="clinical-card p-6">
           {!preview ? (
             <div className="border-2 border-dashed border-border rounded-xl p-12 text-center cursor-pointer hover:border-primary/50 transition-colors"
               onClick={() => fileInputRef.current?.click()}>
               <Upload className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <p className="text-muted-foreground text-sm mb-2">Click to upload a dermoscopy image</p>
-              <p className="text-xs text-muted-foreground">JPG, PNG accepted</p>
+              <p className="text-xs text-muted-foreground mb-4">JPG, PNG accepted</p>
+              <div className="flex gap-3 justify-center">
+                <Button type="button" variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); cameraInputRef.current?.click(); }}>
+                  <Camera className="mr-2 h-4 w-4" /> Use Camera
+                </Button>
+                <Button type="button" size="sm" onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}>
+                  <Upload className="mr-2 h-4 w-4" /> Upload File
+                </Button>
+              </div>
               <input ref={fileInputRef} type="file" accept="image/jpeg,image/png" onChange={handleFileSelect} className="hidden" />
+              <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" onChange={handleFileSelect} className="hidden" />
             </div>
           ) : (
             <div className="space-y-4">
@@ -289,13 +388,18 @@ const ClinicianAnalyze = () => {
                     </Card>
                   )}
 
-                  {/* Save Case */}
-                  {patientId && (
-                    <Button onClick={handleSaveCase} disabled={saving || saved} className="w-full gradient-primary text-primary-foreground shadow-md">
+                  {/* Save Case (manual, when not auto-saved) */}
+                  {!isFromPatientRecord && !saved && (
+                    <Button onClick={handleManualSave} disabled={saving || saved} className="w-full gradient-primary text-primary-foreground shadow-md">
                       {saving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</>
-                        : saved ? <><Save className="mr-2 h-4 w-4" /> Saved</>
-                        : <><Save className="mr-2 h-4 w-4" /> Save Case</>}
+                        : <><Save className="mr-2 h-4 w-4" /> Save Case{saveToPatient && selectedPatientId ? ` to ${displayPatientName}` : ' (standalone)'}</>}
                     </Button>
+                  )}
+
+                  {saved && (
+                    <div className="text-center text-sm text-success font-medium py-2">
+                      ✓ Case saved successfully
+                    </div>
                   )}
 
                   {result.report_ready && result.report_pdf ? (

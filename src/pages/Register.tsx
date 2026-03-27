@@ -6,20 +6,17 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Shield, Stethoscope, CalendarIcon } from 'lucide-react';
+import { Loader2, Shield, Stethoscope } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { format, differenceInYears } from 'date-fns';
-import { cn } from '@/lib/utils';
+import { differenceInYears } from 'date-fns';
 import logo from '@/assets/dermascan-logo.png';
 
 const Register = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState<'patient' | 'clinician'>('patient');
-  const [dob, setDob] = useState<Date | undefined>();
+  const [dobStr, setDobStr] = useState('');
   const [sex, setSex] = useState('');
   const [loading, setLoading] = useState(false);
   const { signUp } = useAuth();
@@ -33,10 +30,11 @@ const Register = () => {
       return;
     }
     if (role === 'patient') {
-      if (!dob) {
-        toast({ title: 'Date of birth required', description: 'Please select your date of birth', variant: 'destructive' });
+      if (!dobStr) {
+        toast({ title: 'Date of birth required', description: 'Please enter your date of birth', variant: 'destructive' });
         return;
       }
+      const dob = new Date(dobStr + 'T00:00:00');
       const age = differenceInYears(new Date(), dob);
       if (age < 1 || age > 120) {
         toast({ title: 'Invalid age', description: 'Age must be between 1 and 120', variant: 'destructive' });
@@ -48,7 +46,7 @@ const Register = () => {
       }
     }
     setLoading(true);
-    const { error } = await signUp(email, password, role, role === 'patient' ? { date_of_birth: format(dob!, 'yyyy-MM-dd'), sex } : undefined);
+    const { error } = await signUp(email, password, role, role === 'patient' ? { date_of_birth: dobStr, sex } : undefined);
     setLoading(false);
     if (error) {
       toast({ title: 'Registration failed', description: error.message, variant: 'destructive' });
@@ -57,11 +55,11 @@ const Register = () => {
     }
   };
 
-  const maxDate = new Date();
-  const minDate = new Date(maxDate.getFullYear() - 120, 0, 1);
+  // Compute max date (today) for the native date input
+  const today = new Date().toISOString().split('T')[0];
 
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-screen flex bg-background">
       {/* Left panel */}
       <div className="hidden lg:flex lg:w-1/2 gradient-hero items-center justify-center p-12 relative overflow-hidden">
         <div className="absolute top-20 -left-20 w-72 h-72 rounded-full bg-white/5 filter blur-3xl animate-float" />
@@ -74,13 +72,13 @@ const Register = () => {
             Take control of your skin health
           </h2>
           <p className="text-white/70 text-sm leading-relaxed">
-            Join thousands of patients and clinicians using AI-powered skin analysis for better, faster outcomes.
+            Join patients and clinicians using AI-powered skin analysis for better, faster outcomes.
           </p>
         </div>
       </div>
 
       {/* Right panel */}
-      <div className="flex-1 flex items-center justify-center px-6 bg-background">
+      <div className="flex-1 flex items-center justify-center px-6">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="w-full max-w-sm">
           <div className="mb-8">
             <div className="flex items-center gap-2.5 mb-8 lg:hidden">
@@ -131,28 +129,15 @@ const Register = () => {
                 {role === 'patient' && (
                   <>
                     <div className="space-y-2">
-                      <Label>Date of Birth</Label>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !dob && "text-muted-foreground")}>
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {dob ? format(dob, 'PPP') : 'Select your date of birth'}
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                          <Calendar
-                            mode="single"
-                            selected={dob}
-                            onSelect={setDob}
-                            disabled={(d) => d > maxDate || d < minDate}
-                            initialFocus
-                            className={cn("p-3 pointer-events-auto")}
-                            captionLayout="dropdown-buttons"
-                            fromYear={1905}
-                            toYear={new Date().getFullYear()}
-                          />
-                        </PopoverContent>
-                      </Popover>
+                      <Label htmlFor="dob">Date of Birth</Label>
+                      <Input
+                        id="dob"
+                        type="date"
+                        value={dobStr}
+                        onChange={e => setDobStr(e.target.value)}
+                        max={today}
+                        className="block w-full"
+                      />
                     </div>
                     <div className="space-y-2">
                       <Label>Sex</Label>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -13,9 +13,15 @@ const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const { signIn, profile } = useAuth();
+  const { signIn, profile, user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (user && profile) {
+      navigate(profile.role === 'clinician' ? '/clinician/dashboard' : '/patient/dashboard', { replace: true });
+    }
+  }, [user, profile, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,12 +33,8 @@ const Login = () => {
     }
   };
 
-  if (profile) {
-    navigate(profile.role === 'clinician' ? '/clinician/dashboard' : '/patient/dashboard', { replace: true });
-  }
-
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-screen flex bg-background">
       {/* Left panel */}
       <div className="hidden lg:flex lg:w-1/2 gradient-hero items-center justify-center p-12 relative overflow-hidden">
         <div className="absolute top-20 -left-20 w-72 h-72 rounded-full bg-white/5 filter blur-3xl animate-float" />
@@ -52,7 +54,7 @@ const Login = () => {
       </div>
 
       {/* Right panel */}
-      <div className="flex-1 flex items-center justify-center px-6 bg-background">
+      <div className="flex-1 flex items-center justify-center px-6">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="w-full max-w-sm">
           <div className="mb-8">
             <div className="flex items-center gap-2.5 mb-8 lg:hidden">
