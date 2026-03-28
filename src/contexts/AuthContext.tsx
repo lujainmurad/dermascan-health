@@ -62,18 +62,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setLoading(false);
     });
 
-    supabase.auth.getSession().then(({ data: { session } }).catch(() => {
-      // If refresh token is invalid/expired, sign out to clear stale session
-      supabase.auth.signOut();
-      return { data: { session: null } };
-    }).then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchProfile(session.user.id);
-      }
-      setLoading(false);
-    });
+    supabase.auth.getSession()
+      .then(({ data: { session } }) => {
+        setSession(session);
+        setUser(session?.user ?? null);
+        if (session?.user) {
+          fetchProfile(session.user.id);
+        }
+        setLoading(false);
+      })
+      .catch(() => {
+        // Stale refresh token — clear session
+        supabase.auth.signOut();
+        setLoading(false);
+      });
 
     return () => subscription.unsubscribe();
   }, []);
