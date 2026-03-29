@@ -51,6 +51,12 @@ const PatientCases = () => {
           <h1 className="text-2xl font-display font-bold text-foreground tracking-tight">Patient Cases</h1>
           <p className="text-sm text-muted-foreground mt-1">View and manage all patient analysis records.</p>
         </div>
+        <Button
+          onClick={() => navigate('/clinician/analyze')}
+          className="gradient-primary text-primary-foreground"
+        >
+          <ScanSearch className="mr-2 h-4 w-4" /> Analyze New Image
+        </Button>
       </div>
 
       {loading ? <LoadingSpinner /> : cases.length === 0 ? (

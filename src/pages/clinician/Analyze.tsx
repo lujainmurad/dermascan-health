@@ -173,14 +173,25 @@ const ClinicianAnalyze = () => {
     if (!user || !image) return;
     setSaving(true);
     try {
-      const fileName = `${user.id}/${Date.now()}_${image.name}`;
-      const { error: uploadError } = await supabase.storage.from('case-images').upload(fileName, image);
-      if (uploadError) throw uploadError;
-      const { data: { publicUrl } } = supabase.storage.from('case-images').getPublicUrl(fileName);
+      // Try uploading to storage, but don't block save if storage fails
+      let imageUrl = '';
+      try {
+        const fileName = `${user.id}/${Date.now()}_${image.name}`;
+        const { error: uploadError } = await supabase.storage.from('case-images').upload(fileName, image);
+        if (uploadError) {
+          console.warn('Storage upload failed, saving without image URL:', uploadError.message);
+          toast({ title: 'Image upload skipped', description: uploadError.message, variant: 'default' });
+        } else {
+          const { data: { publicUrl } } = supabase.storage.from('case-images').getPublicUrl(fileName);
+          imageUrl = publicUrl;
+        }
+      } catch (storageErr: any) {
+        console.warn('Storage error:', storageErr.message);
+      }
 
-      const insertData: any = {
+      const insertData: Record<string, any> = {
         clinician_id: user.id,
-        image_url: publicUrl,
+        image_url: imageUrl || null,
         overlay_image_url: analysisResult.overlay_image || null,
         prediction_label: analysisResult.prediction,
         confidence: analysisResult.confidence,
@@ -193,8 +204,13 @@ const ClinicianAnalyze = () => {
         insertData.patient_id = patientId;
       }
 
-      const { error: insertError } = await supabase.from('cases').insert(insertData);
-      if (insertError) throw insertError;
+      const { error: insertError, data: insertedData } = await supabase.from('cases').insert(insertData as any).select();
+      if (insertError) {
+        console.error('Case insert error:', insertError);
+        toast({ title: 'Save Failed', description: `Database error: ${insertError.message} (Code: ${insertError.code})`, variant: 'destructive' });
+        return;
+      }
+      console.log('Case saved successfully:', insertedData);
       setSaved(true);
       toast({ title: 'Case saved', description: patientId ? 'Saved to patient record.' : 'Saved as standalone case.' });
     } catch (err: any) {
