@@ -204,7 +204,7 @@ const ClinicianAnalyze = () => {
         insertData.patient_id = patientId;
       }
 
-      const { error: insertError, data: insertedData } = await supabase.from('cases').insert(insertData).select();
+      const { error: insertError, data: insertedData } = await supabase.from('cases').insert(insertData as any).select();
       if (insertError) {
         console.error('Case insert error:', insertError);
         toast({ title: 'Save Failed', description: `Database error: ${insertError.message} (Code: ${insertError.code})`, variant: 'destructive' });
