@@ -193,17 +193,16 @@ const FindSpecialist = () => {
                     </div>
                   )}
                   <div className="mt-4">
-                    {c.hasAvailability ? (
-                      <Button
-                        size="sm"
-                        className="w-full gradient-primary text-primary-foreground"
-                        onClick={() => navigate(`/patient/book-appointment?clinician=${c.user_id}`)}
-                      >
-                        <Calendar className="h-4 w-4 mr-2" /> Book Appointment
-                      </Button>
-                    ) : (
-                      <p className="text-xs text-muted-foreground text-center py-2 bg-muted rounded-lg">
-                        Contact to schedule
+                    <Button
+                      size="sm"
+                      className="w-full gradient-primary text-primary-foreground"
+                      onClick={() => navigate(`/patient/book-appointment?clinician=${c.user_id}`)}
+                    >
+                      <Calendar className="h-4 w-4 mr-2" /> Book Appointment
+                    </Button>
+                    {!c.hasAvailability && (
+                      <p className="text-xs text-muted-foreground text-center mt-1">
+                        No online slots — you can also contact directly
                       </p>
                     )}
                   </div>
