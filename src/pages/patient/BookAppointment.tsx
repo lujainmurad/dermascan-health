@@ -47,7 +47,7 @@ const BookAppointment = () => {
 
   useEffect(() => {
     const fetchClinicians = async () => {
-      const { data } = await supabase.from('profiles').select('user_id, full_name, hospital_name, email').eq('role', 'clinician').eq('verified', true);
+      const { data } = await supabase.from('profiles').select('user_id, full_name, hospital_name, email').eq('role', 'clinician');
       setClinicians((data as Clinician[]) || []);
       setLoadingClinicians(false);
     };
