@@ -45,7 +45,7 @@ const PatientHistory = () => {
       const [{ data: profile }, { data: appts }, { data: patientCases }] = await Promise.all([
         supabase.from('profiles').select('*').eq('user_id', patientId).single(),
         supabase.from('appointments').select('*').eq('clinician_id', user.id).eq('patient_id', patientId).order('appointment_date', { ascending: false }),
-        supabase.from('cases').select('*').eq('clinician_id', user.id).eq('patient_id', patientId).order('created_at', { ascending: false }),
+        supabase.from('cases').select('*').eq('patient_id', patientId).order('created_at', { ascending: false }),
       ]);
       setPatient(profile);
       setAppointments(appts || []);
