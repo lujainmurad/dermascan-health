@@ -78,6 +78,12 @@ const FindSpecialist = () => {
   // Fetch nearby specialists from backend
   const fetchNearby = () => {
     setLoadingNearby(true);
+    setError(null);
+    setSpecialists([]);
+    if (!navigator.geolocation) {
+      fetchSpecialists(DEFAULT_LAT, DEFAULT_LNG);
+      return;
+    }
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const c = { lat: pos.coords.latitude, lng: pos.coords.longitude };
@@ -86,7 +92,8 @@ const FindSpecialist = () => {
       },
       () => {
         fetchSpecialists(DEFAULT_LAT, DEFAULT_LNG);
-      }
+      },
+      { timeout: 8000 }
     );
   };
 
