@@ -32,7 +32,7 @@ const PatientCases = () => {
   }, [user]);
 
   useEffect(() => {
-    const ids = [...new Set(cases.map(c => c.patient_id))];
+    const ids = [...new Set(cases.map(c => c.patient_id).filter((id): id is string => !!id && typeof id === 'string'))];
     if (ids.length === 0) return;
     supabase.from('profiles').select('user_id, full_name, email').in('user_id', ids).then(({ data }) => {
       const map: Record<string, string> = {};
