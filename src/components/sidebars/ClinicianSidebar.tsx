@@ -13,12 +13,11 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from '@/components/ui/sidebar';
-import { LayoutDashboard, Users, Calendar, Settings, LogOut, ScanSearch } from 'lucide-react';
+import { LayoutDashboard, Users, Calendar, Settings, LogOut } from 'lucide-react';
 import logo from '@/assets/dermascan-logo.png';
 
 const navItems = [
   { title: 'Dashboard', url: '/clinician/dashboard', icon: LayoutDashboard },
-  { title: 'Analyze Image', url: '/clinician/analyze', icon: ScanSearch },
   { title: 'Patient Cases', url: '/clinician/cases', icon: Users },
   { title: 'Appointments', url: '/clinician/appointments', icon: Calendar },
   { title: 'Settings', url: '/settings', icon: Settings },

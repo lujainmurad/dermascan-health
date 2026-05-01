@@ -32,7 +32,7 @@ const PatientCases = () => {
   }, [user]);
 
   useEffect(() => {
-    const ids = [...new Set(cases.map(c => c.patient_id))];
+    const ids = [...new Set(cases.map(c => c.patient_id).filter((id): id is string => !!id && typeof id === 'string'))];
     if (ids.length === 0) return;
     supabase.from('profiles').select('user_id, full_name, email').in('user_id', ids).then(({ data }) => {
       const map: Record<string, string> = {};
@@ -79,16 +79,20 @@ const PatientCases = () => {
                   <tr key={c.id} className="border-b border-border/50 hover:bg-accent/30 transition-colors">
                     <td className="p-4">
                       <div className="flex items-center gap-2">
-                        <span className="text-sm text-foreground font-medium">{patientNames[c.patient_id] || 'Loading...'}</span>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 w-7 p-0 text-primary"
-                          onClick={() => navigate(`/clinician/analyze?patientId=${c.patient_id}&patientName=${encodeURIComponent(patientNames[c.patient_id] || 'Patient')}`)}
-                          title="Analyze new image for this patient"
-                        >
-                          <ScanSearch className="h-3.5 w-3.5" />
-                        </Button>
+                        <span className="text-sm text-foreground font-medium">
+                          {c.patient_id ? (patientNames[c.patient_id] || 'Loading...') : 'Walk-in Patient'}
+                        </span>
+                        {c.patient_id && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 w-7 p-0 text-primary"
+                            onClick={() => navigate(`/clinician/analyze?patientId=${c.patient_id}&patientName=${encodeURIComponent(patientNames[c.patient_id] || 'Patient')}`)}
+                            title="Analyze new image for this patient"
+                          >
+                            <ScanSearch className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
                       </div>
                     </td>
                     <td className="p-4 text-sm text-muted-foreground">{format(new Date(c.created_at), 'PP')}</td>
