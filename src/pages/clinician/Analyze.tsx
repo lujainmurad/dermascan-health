@@ -169,52 +169,99 @@ const ClinicianAnalyze = () => {
     }
   };
 
+  const dataUrlToBlob = (dataUrl: string): Blob | null => {
+    try {
+      const [header, b64] = dataUrl.split(',');
+      const mimeMatch = header.match(/data:([^;]+);base64/);
+      const mime = mimeMatch ? mimeMatch[1] : 'image/png';
+      const binary = atob(b64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      return new Blob([bytes], { type: mime });
+    } catch {
+      return null;
+    }
+  };
+
+  const uploadToBucket = async (blob: Blob, path: string): Promise<string | null> => {
+    const { error } = await supabase.storage
+      .from('case-images')
+      .upload(path, blob, { contentType: blob.type, upsert: false });
+    if (error) {
+      console.warn('Storage upload failed:', error.message);
+      return null;
+    }
+    const { data: { publicUrl } } = supabase.storage.from('case-images').getPublicUrl(path);
+    return publicUrl;
+  };
+
   const saveCase = async (analysisResult: AnalysisResult, patientId: string | null) => {
     if (!user || !image) return;
     setSaving(true);
     try {
-      // Try uploading to storage, but don't block save if storage fails
-      let imageUrl = '';
-      try {
-        const fileName = `${user.id}/${Date.now()}_${image.name}`;
-        const { error: uploadError } = await supabase.storage.from('case-images').upload(fileName, image);
-        if (uploadError) {
-          console.warn('Storage upload failed, saving without image URL:', uploadError.message);
-          toast({ title: 'Image upload skipped', description: uploadError.message, variant: 'default' });
-        } else {
-          const { data: { publicUrl } } = supabase.storage.from('case-images').getPublicUrl(fileName);
-          imageUrl = publicUrl;
+      const ts = Date.now();
+
+      // 1. Upload original image
+      let imageUrl: string | null = null;
+      const origPath = `${user.id}/${ts}_original_${image.name}`;
+      imageUrl = await uploadToBucket(image, origPath);
+
+      // 2. Upload overlay image (convert base64 → blob)
+      let overlayUrl: string | null = null;
+      if (analysisResult.overlay_image?.startsWith('data:')) {
+        const overlayBlob = dataUrlToBlob(analysisResult.overlay_image);
+        if (overlayBlob) {
+          const overlayPath = `${user.id}/${ts}_overlay.png`;
+          overlayUrl = await uploadToBucket(overlayBlob, overlayPath);
         }
-      } catch (storageErr: any) {
-        console.warn('Storage error:', storageErr.message);
+      } else if (analysisResult.overlay_image) {
+        overlayUrl = analysisResult.overlay_image;
+      }
+
+      // 3. Only store PDF if under 1MB (base64 size)
+      let reportPdf: string | null = null;
+      if (analysisResult.report_pdf) {
+        const pdfBytes = analysisResult.report_pdf.length * 0.75; // approx base64 → bytes
+        if (pdfBytes < 1024 * 1024) {
+          reportPdf = analysisResult.report_pdf;
+        } else {
+          console.warn('Report PDF exceeds 1MB, skipping DB storage');
+        }
       }
 
       const insertData: Record<string, any> = {
         clinician_id: user.id,
-        image_url: imageUrl || null,
-        overlay_image_url: analysisResult.overlay_image || null,
+        image_url: imageUrl,
+        overlay_image_url: overlayUrl,
         prediction_label: analysisResult.prediction,
         confidence: analysisResult.confidence,
-        features_summary: analysisResult.feature_summary ? (analysisResult.feature_summary as any) : null,
-        report_pdf: analysisResult.report_pdf || null,
+        features_summary: analysisResult.feature_summary ?? null,
+        report_pdf: reportPdf,
         recommendation: analysisResult.recommendation || null,
         status: 'reviewed',
       };
-      if (patientId) {
-        insertData.patient_id = patientId;
-      }
+      if (patientId) insertData.patient_id = patientId;
 
-      const { error: insertError, data: insertedData } = await supabase.from('cases').insert(insertData as any).select();
+      const { error: insertError, data: insertedData } = await supabase
+        .from('cases')
+        .insert(insertData as any)
+        .select();
+
       if (insertError) {
         console.error('Case insert error:', insertError);
-        toast({ title: 'Save Failed', description: `Database error: ${insertError.message} (Code: ${insertError.code})`, variant: 'destructive' });
+        toast({
+          title: 'Save Failed',
+          description: `${insertError.message}${insertError.code ? ` (${insertError.code})` : ''}`,
+          variant: 'destructive',
+        });
         return;
       }
       console.log('Case saved successfully:', insertedData);
       setSaved(true);
       toast({ title: 'Case saved', description: patientId ? 'Saved to patient record.' : 'Saved as standalone case.' });
     } catch (err: any) {
-      toast({ title: 'Save Error', description: err.message, variant: 'destructive' });
+      console.error('Save error:', err);
+      toast({ title: 'Save Error', description: err.message || 'Unknown error', variant: 'destructive' });
     } finally {
       setSaving(false);
     }
