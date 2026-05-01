@@ -9,7 +9,7 @@ import { Search, MapPin, Stethoscope, Building2, Phone, Globe, Star, AlertTriang
 import { motion } from 'framer-motion';
 import AppLayout from '@/components/layouts/AppLayout';
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || '';
+const BACKEND_URL = (import.meta.env.VITE_BACKEND_URL || '').replace(/\/$/, '');
 const MAPS_API_KEY = 'AIzaSyDu7FFrIAWyscOUj906OEpLunErqQH-oqw';
 const DEFAULT_LAT = 31.9539;
 const DEFAULT_LNG = 35.9106;
