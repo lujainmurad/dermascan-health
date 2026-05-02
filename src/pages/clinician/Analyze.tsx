@@ -437,63 +437,64 @@ const ClinicianAnalyze = () => {
 
               {result && (
                 <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-4 mt-4">
-                  {/* Prediction Badge */}
-                  <div className="rounded-xl bg-card border border-border p-6 text-center">
-                    <Badge className={`${badgeColor} text-lg px-6 py-2 font-bold mb-3`}>
-                      {result.prediction}
-                    </Badge>
-                    <p className="text-2xl font-bold text-foreground">{(result.confidence * 100).toFixed(1)}%</p>
-                    <p className="text-xs text-muted-foreground mt-1">Confidence</p>
+                  {/* Diagnosis Header */}
+                  <div className="rounded-xl bg-card border border-border p-6">
+                    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 mb-3">
+                      <h2 className="text-2xl font-bold text-foreground tracking-tight">{displayName || '—'}</h2>
+                      {icd10 && (
+                        <span className="text-xs text-muted-foreground font-medium">ICD-10: {icd10}</span>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <div>
+                        <p className="text-2xl font-bold text-foreground">{(result.confidence * 100).toFixed(1)}%</p>
+                        <p className="text-xs text-muted-foreground">Confidence</p>
+                      </div>
+                      {result.risk_level && (
+                        <Badge className={`${riskBadgeClass(result.risk_level)} text-sm px-4 py-1.5 font-semibold uppercase tracking-wide`}>
+                          {result.risk_level} risk
+                        </Badge>
+                      )}
+                    </div>
                     {result.recommendation && (
                       <p className="text-sm text-foreground mt-4 bg-muted rounded-lg p-3">{result.recommendation}</p>
                     )}
                   </div>
 
-                  {/* Probabilities */}
-                  {result.probabilities && (
-                    <Card>
-                      <CardHeader className="pb-3">
-                        <CardTitle className="text-base font-bold">Class Probabilities</CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-3">
-                        {Object.entries(result.probabilities).map(([cls, prob]) => {
-                          const pct = (prob * 100).toFixed(1);
-                          const barColor = cls === 'Melanoma' ? 'bg-destructive' : cls === 'Seborrheic Keratosis' ? 'bg-warning' : 'bg-success';
-                          return (
-                            <div key={cls}>
-                              <div className="flex justify-between text-sm mb-1">
-                                <span className="font-medium text-foreground">{cls}</span>
-                                <span className="text-muted-foreground">{pct}%</span>
-                              </div>
-                              <div className="h-2 bg-muted rounded-full overflow-hidden">
-                                <div className={`h-full ${barColor} rounded-full transition-all duration-500`} style={{ width: `${pct}%` }} />
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </CardContent>
-                    </Card>
-                  )}
-
-                  {/* Feature Summary */}
-                  {result.feature_summary && (
+                  {/* Feature Summary (grouped grid from response) */}
+                  {result.feature_summary && Object.keys(result.feature_summary).length > 0 && (
                     <Card>
                       <CardHeader className="pb-3">
                         <CardTitle className="text-base font-bold">Feature Summary</CardTitle>
                       </CardHeader>
                       <CardContent>
-                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-                          {(Object.keys(featureLabels) as (keyof FeatureSummary)[]).map((key) => (
-                            <div key={key} className="rounded-xl bg-muted p-3 text-center">
-                              <p className="text-xs text-muted-foreground mb-1">{featureLabels[key]}</p>
-                              <p className="font-bold text-foreground text-sm">
-                                {typeof result.feature_summary![key] === 'number'
-                                  ? result.feature_summary![key].toFixed(3)
-                                  : String(result.feature_summary![key])}
-                              </p>
+                        <div className="grid sm:grid-cols-2 gap-x-6 gap-y-2">
+                          {Object.entries(result.feature_summary).map(([label, value]) => (
+                            <div key={label} className="flex items-center justify-between border-b border-border/50 py-2 text-sm">
+                              <span className="text-muted-foreground">{label}</span>
+                              <span className="font-semibold text-foreground">
+                                {typeof value === 'number' ? (Number.isInteger(value) ? value : value.toFixed(3)) : String(value)}
+                              </span>
                             </div>
                           ))}
                         </div>
+
+                        {/* Dermoscopic Flags */}
+                        {result.flags && FLAG_BADGES.some(f => result.flags?.[f.key]) && (
+                          <div className="mt-5 pt-4 border-t border-border">
+                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Dermoscopic Flags</p>
+                            <div className="flex flex-wrap gap-2">
+                              {FLAG_BADGES.map(f => result.flags?.[f.key] ? (
+                                <Badge
+                                  key={f.key}
+                                  className={`${f.tone === 'red' ? 'bg-destructive text-destructive-foreground' : 'bg-warning text-warning-foreground'} text-xs px-3 py-1 font-semibold`}
+                                >
+                                  {f.label}
+                                </Badge>
+                              ) : null)}
+                            </div>
+                          </div>
+                        )}
                       </CardContent>
                     </Card>
                   )}
