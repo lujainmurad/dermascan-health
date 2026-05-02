@@ -265,11 +265,12 @@ const ClinicianAnalyze = () => {
         clinician_id: user.id,
         image_url: imageUrl,
         overlay_image_url: overlayUrl,
-        prediction_label: analysisResult.prediction,
+        prediction_label: analysisResult.display_name || analysisResult.prediction,
         confidence: analysisResult.confidence,
         features_summary: analysisResult.feature_summary ?? null,
         report_pdf: reportPdf,
         recommendation: analysisResult.recommendation || null,
+        body_site: bodySite || null,
         status: 'reviewed',
       };
       if (patientId) insertData.patient_id = patientId;
