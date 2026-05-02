@@ -314,8 +314,8 @@ const ClinicianAnalyze = () => {
     link.click();
   };
 
-  const predClass = result?.prediction || '';
-  const badgeColor = predictionColors[predClass] || 'bg-muted text-muted-foreground';
+  const displayName = result?.display_name || result?.prediction || '';
+  const icd10 = result?.icd10 || '';
 
   const displayPatientName = isFromPatientRecord
     ? patientNameFromUrl
