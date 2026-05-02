@@ -149,11 +149,21 @@ const ClinicianAnalyze = () => {
       const formData = new FormData();
       formData.append('image', image);
 
-      const headers: Record<string, string> = {};
+      const headers: Record<string, string> = {
+        'X-Body-Site': bodySite || 'unknown',
+      };
+
+      if (profile?.full_name) headers['X-Clinician-Name'] = profile.full_name;
+      if ((profile as any)?.hospital) {
+        headers['X-Institution'] = (profile as any).hospital;
+      } else if (profile?.hospital_name) {
+        headers['X-Institution'] = profile.hospital_name;
+      }
+
       if (effectivePatientId) {
         const { data: patientProfile } = await supabase
           .from('profiles')
-          .select('date_of_birth, sex')
+          .select('date_of_birth, sex, full_name')
           .eq('user_id', effectivePatientId)
           .single();
         if (patientProfile) {
@@ -163,7 +173,12 @@ const ClinicianAnalyze = () => {
           if ((patientProfile as any).sex) {
             headers['X-Patient-Sex'] = (patientProfile as any).sex;
           }
+          if ((patientProfile as any).full_name) {
+            headers['X-Patient-Name'] = (patientProfile as any).full_name;
+          }
         }
+      } else if (patientNameFromUrl) {
+        headers['X-Patient-Name'] = patientNameFromUrl;
       }
 
       const response = await fetch(`${BACKEND_URL}/analyze/clinician`, {
