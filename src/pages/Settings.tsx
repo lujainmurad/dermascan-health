@@ -255,13 +255,17 @@ const Settings = () => {
             <>
               <div className="grid sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="hospital" className="font-semibold">Hospital</Label>
-                  <Input id="hospital" value={form.hospital_name} onChange={e => setForm(f => ({ ...f, hospital_name: e.target.value }))} />
+                  <Label htmlFor="hospital_name" className="font-semibold">Hospital</Label>
+                  <Input id="hospital_name" value={form.hospital_name} onChange={e => setForm(f => ({ ...f, hospital_name: e.target.value }))} />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="specialty" className="font-semibold">Specialty</Label>
                   <Input id="specialty" value={form.specialty} onChange={e => setForm(f => ({ ...f, specialty: e.target.value }))} />
                 </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="hospital" className="font-semibold">Hospital / Institution</Label>
+                <Input id="hospital" value={form.hospital} onChange={e => setForm(f => ({ ...f, hospital: e.target.value }))} placeholder="Institution name (used on reports)" />
               </div>
               {!profile.verified && (
                 <div className="rounded-xl border border-warning/30 bg-warning/5 p-4 flex gap-3">
