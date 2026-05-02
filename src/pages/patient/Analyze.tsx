@@ -11,6 +11,8 @@ import AppLayout from '@/components/layouts/AppLayout';
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || '';
 
 interface AnalysisResult {
+  overlay_image?: string;
+  lesion_area_pct?: number;
   risk_level: string;
   confidence: number;
   recommendation: string;
@@ -126,27 +128,32 @@ const PatientAnalyze = () => {
           {result && (
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mt-6 space-y-4">
               {(() => {
-                const isHighRisk = result.risk_level?.toLowerCase().includes('high');
+                const level = (result.risk_level || '').toLowerCase();
+                const isHigh = level === 'high';
+                const isMod = level === 'moderate';
+                const badgeClass = isHigh
+                  ? 'bg-destructive text-destructive-foreground'
+                  : isMod
+                    ? 'bg-warning text-warning-foreground'
+                    : 'bg-success text-success-foreground';
+                const labelText = isHigh ? 'High Risk' : isMod ? 'Moderate Risk' : 'Low Risk';
                 return (
                   <>
-                    <div className={`rounded-xl p-5 ${isHighRisk ? 'bg-destructive/10 border border-destructive/20' : 'bg-success/10 border border-success/20'}`}>
-                      <div className="flex items-center gap-3 mb-3">
-                        {isHighRisk ? (
-                          <AlertTriangle className="h-6 w-6 text-destructive" />
-                        ) : (
-                          <CheckCircle className="h-6 w-6 text-success" />
-                        )}
-                        <div>
-                          <p className="font-semibold text-foreground">{result.risk_level}</p>
-                          <p className="text-sm text-muted-foreground">Confidence: {(result.confidence * 100).toFixed(1)}%</p>
-                        </div>
+                    <div className="rounded-xl bg-card border border-border p-6 text-center space-y-3">
+                      <div className={`inline-block ${badgeClass} text-xl font-bold px-8 py-3 rounded-full shadow-md`}>
+                        {labelText}
                       </div>
-                      <p className="text-sm text-foreground">{result.recommendation}</p>
+                      <p className="text-sm text-muted-foreground">
+                        Confidence: <span className="font-semibold text-foreground">{(result.confidence * 100).toFixed(1)}%</span>
+                      </p>
+                      {result.recommendation && (
+                        <p className="text-sm text-foreground bg-muted rounded-lg p-3 text-left">{result.recommendation}</p>
+                      )}
                     </div>
-                    {isHighRisk && (
+                    {isHigh && (
                       <Button asChild className="w-full gradient-primary text-primary-foreground" size="lg">
                         <Link to="/patient/find-specialist">
-                          <Calendar className="mr-2 h-4 w-4" /> Find a Specialist
+                          <Calendar className="mr-2 h-4 w-4" /> Book Appointment
                         </Link>
                       </Button>
                     )}
