@@ -15,48 +15,64 @@ import AppLayout from '@/components/layouts/AppLayout';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || '';
 
-interface FeatureSummary {
-  asymmetry: number;
-  border_irregularity: number;
-  n_colors: number;
-  solidity: number;
-  lesion_area_pct: number;
-  major_axis: number;
-  minor_axis: number;
-  eccentricity: number;
-  glcm_contrast: number;
-  lbp_entropy: number;
+type FeatureSummary = Record<string, number | string>;
+
+interface DermFlags {
+  blue_white_veil?: boolean;
+  regression_zone?: boolean;
+  irregular_border?: boolean;
+  marked_asymmetry?: boolean;
+  high_variegation?: boolean;
+  [k: string]: boolean | undefined;
 }
 
 interface AnalysisResult {
-  prediction: string;
+  prediction?: string;
+  display_name?: string;
+  icd10?: string;
   confidence: number;
+  risk_level?: string;
   recommendation: string;
   overlay_image: string;
   features?: Record<string, any>;
   feature_summary?: FeatureSummary;
+  flags?: DermFlags;
   report_pdf?: string;
   report_ready?: boolean;
-  probabilities?: { Nevus: number; Melanoma: number; 'Seborrheic Keratosis': number };
+  probabilities?: Record<string, number>;
 }
 
-const featureLabels: Record<keyof FeatureSummary, string> = {
-  asymmetry: 'Asymmetry',
-  border_irregularity: 'Border Irregularity',
-  n_colors: 'Number of Colors',
-  solidity: 'Solidity',
-  lesion_area_pct: 'Lesion Area %',
-  major_axis: 'Major Axis',
-  minor_axis: 'Minor Axis',
-  eccentricity: 'Eccentricity',
-  glcm_contrast: 'GLCM Contrast',
-  lbp_entropy: 'LBP Entropy',
-};
+const BODY_SITES: { value: string; label: string }[] = [
+  { value: 'head_face', label: 'Head / Face' },
+  { value: 'neck', label: 'Neck' },
+  { value: 'trunk_front', label: 'Trunk – Anterior' },
+  { value: 'trunk_back', label: 'Trunk – Posterior' },
+  { value: 'arm_left', label: 'Left Upper Limb' },
+  { value: 'arm_right', label: 'Right Upper Limb' },
+  { value: 'hand_left', label: 'Left Hand' },
+  { value: 'hand_right', label: 'Right Hand' },
+  { value: 'leg_left', label: 'Left Lower Limb' },
+  { value: 'leg_right', label: 'Right Lower Limb' },
+  { value: 'foot_left', label: 'Left Foot' },
+  { value: 'foot_right', label: 'Right Foot' },
+  { value: 'genital', label: 'Anogenital Region' },
+  { value: 'unknown', label: 'Not specified' },
+];
 
-const predictionColors: Record<string, string> = {
-  Melanoma: 'bg-destructive text-destructive-foreground',
-  'Seborrheic Keratosis': 'bg-warning text-warning-foreground',
-  Nevus: 'bg-success text-success-foreground',
+const FLAG_BADGES: { key: keyof DermFlags; label: string; tone: 'red' | 'orange' }[] = [
+  { key: 'blue_white_veil', label: 'Blue-white veil', tone: 'red' },
+  { key: 'regression_zone', label: 'Regression structures', tone: 'orange' },
+  { key: 'irregular_border', label: 'Irregular border', tone: 'orange' },
+  { key: 'marked_asymmetry', label: 'Marked asymmetry', tone: 'orange' },
+  { key: 'high_variegation', label: 'High colour variegation', tone: 'orange' },
+];
+
+const riskBadgeClass = (level?: string) => {
+  const l = (level || '').toLowerCase();
+  if (l === 'high') return 'bg-destructive text-destructive-foreground';
+  if (l === 'moderate') return 'bg-warning text-warning-foreground';
+  if (l === 'low') return 'bg-success text-success-foreground';
+  return 'bg-muted text-muted-foreground';
 };
 
 interface PatientOption {
