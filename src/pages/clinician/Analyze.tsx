@@ -379,6 +379,20 @@ const ClinicianAnalyze = () => {
           </div>
         )}
 
+        <div className="clinical-card p-4 mb-4">
+          <Label htmlFor="bodySite" className="text-sm font-semibold mb-2 block">Lesion Site</Label>
+          <Select value={bodySite} onValueChange={setBodySite}>
+            <SelectTrigger id="bodySite" className="w-full sm:w-[320px]">
+              <SelectValue placeholder="Select body site..." />
+            </SelectTrigger>
+            <SelectContent>
+              {BODY_SITES.map(s => (
+                <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
         <div className="clinical-card p-6">
           {!preview ? (
             <div className="border-2 border-dashed border-border rounded-xl p-12 text-center cursor-pointer hover:border-primary/50 transition-colors"
