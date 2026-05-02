@@ -45,6 +45,7 @@ const Settings = () => {
     full_name: '',
     phone: '',
     hospital_name: '',
+    hospital: '',
     specialty: '',
     city: '',
     date_of_birth: '' as string,
