@@ -96,6 +96,7 @@ const ClinicianAnalyze = () => {
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [bodySite, setBodySite] = useState<string>('unknown');
 
   // Patient selector for walk-in or linking
   const [patients, setPatients] = useState<PatientOption[]>([]);
