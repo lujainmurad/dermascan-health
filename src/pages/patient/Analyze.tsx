@@ -11,6 +11,8 @@ import AppLayout from '@/components/layouts/AppLayout';
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || '';
 
 interface AnalysisResult {
+  overlay_image?: string;
+  lesion_area_pct?: number;
   risk_level: string;
   confidence: number;
   recommendation: string;
