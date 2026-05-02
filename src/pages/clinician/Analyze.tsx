@@ -82,7 +82,7 @@ interface PatientOption {
 }
 
 const ClinicianAnalyze = () => {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const { toast } = useToast();
   const [searchParams] = useSearchParams();
   const patientIdFromUrl = searchParams.get('patientId');
