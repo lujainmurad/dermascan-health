@@ -12,6 +12,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  useSidebar,
 } from '@/components/ui/sidebar';
 import { LayoutDashboard, ScanSearch, Search, Calendar, Settings, LogOut, MessageSquare } from 'lucide-react';
 import logo from '@/assets/dermascan-logo.png';
@@ -29,6 +30,8 @@ export function PatientSidebar() {
   const { profile, signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const { state } = useSidebar();
+  const collapsed = state === 'collapsed';
 
   const initials = profile?.full_name
     ? profile.full_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
@@ -40,16 +43,18 @@ export function PatientSidebar() {
   };
 
   return (
-    <Sidebar collapsible="none" className="border-r border-sidebar-border w-[220px] min-w-[220px]">
-      <SidebarHeader className="p-4">
+    <Sidebar collapsible="icon" className="border-r border-sidebar-border">
+      <SidebarHeader className="p-3">
         <div
-          className="flex items-center gap-3 cursor-pointer"
+          className={`flex items-center cursor-pointer ${collapsed ? 'justify-center' : 'gap-3 px-1'}`}
           onClick={() => navigate('/patient/dashboard')}
         >
-          <img src={logo} alt="DermaScan" className="w-8 h-8 rounded-lg flex-shrink-0" />
-          <span className="font-bold text-sm text-sidebar-accent-foreground tracking-tight">
-            DermaScan
-          </span>
+          <img src={logo} alt="DermaScan" className="w-10 h-10 rounded-xl flex-shrink-0" />
+          {!collapsed && (
+            <span className="font-bold text-base text-sidebar-accent-foreground tracking-tight truncate">
+              DermaScan
+            </span>
+          )}
         </div>
       </SidebarHeader>
 
@@ -63,18 +68,18 @@ export function PatientSidebar() {
                   : location.pathname.startsWith(item.url);
                 return (
                   <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton asChild>
+                    <SidebarMenuButton asChild tooltip={item.title}>
                       <NavLink
                         to={item.url}
                         end={item.url === '/settings'}
-                        className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                        className={`flex items-center ${collapsed ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                           isActive
                             ? 'bg-sidebar-accent text-sidebar-accent-foreground'
                             : 'text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground'
                         }`}
                       >
                         <item.icon className="h-4 w-4 flex-shrink-0" />
-                        <span>{item.title}</span>
+                        {!collapsed && <span className="truncate">{item.title}</span>}
                       </NavLink>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -85,29 +90,33 @@ export function PatientSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="p-3">
+      <SidebarFooter className="p-2">
         <button
           onClick={handleSignOut}
-          className="flex items-center gap-3 rounded-lg px-2 py-2 w-full text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-destructive transition-colors mb-1"
+          title="Sign Out"
+          className={`flex items-center ${collapsed ? 'justify-center' : 'gap-3'} rounded-lg px-2 py-2 w-full text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-destructive transition-colors mb-1`}
         >
           <LogOut className="h-4 w-4 flex-shrink-0" />
-          <span className="text-xs font-medium">Sign Out</span>
+          {!collapsed && <span className="text-xs font-medium">Sign Out</span>}
         </button>
         <div
-          className="flex items-center gap-3 rounded-lg px-2 py-2 cursor-pointer hover:bg-sidebar-accent/50 transition-colors"
+          className={`flex items-center ${collapsed ? 'justify-center' : 'gap-3'} rounded-lg px-2 py-2 cursor-pointer hover:bg-sidebar-accent/50 transition-colors`}
           onClick={() => navigate('/settings')}
+          title={profile?.full_name || 'Patient'}
         >
           <Avatar className="h-7 w-7 flex-shrink-0">
             <AvatarFallback className="bg-sidebar-primary text-sidebar-primary-foreground text-xs font-semibold">
               {initials}
             </AvatarFallback>
           </Avatar>
-          <div className="flex-1 min-w-0">
-            <p className="text-xs font-medium text-sidebar-accent-foreground truncate">
-              {profile?.full_name || 'Patient'}
-            </p>
-            <p className="text-[10px] text-sidebar-foreground truncate">Patient</p>
-          </div>
+          {!collapsed && (
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-medium text-sidebar-accent-foreground truncate">
+                {profile?.full_name || 'Patient'}
+              </p>
+              <p className="text-[10px] text-sidebar-foreground truncate">Patient</p>
+            </div>
+          )}
         </div>
       </SidebarFooter>
     </Sidebar>
