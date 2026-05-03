@@ -63,7 +63,7 @@ const Settings = () => {
         full_name: profile.full_name || '',
         phone: profile.phone || '',
         hospital_name: profile.hospital_name || '',
-        hospital: (profile as any).hospital || '',
+        
         specialty: profile.specialty || '',
         city: profile.city || '',
         date_of_birth: (profile as any).date_of_birth || '',
