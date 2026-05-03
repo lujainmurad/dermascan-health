@@ -45,7 +45,6 @@ const Settings = () => {
     full_name: '',
     phone: '',
     hospital_name: '',
-    hospital: '',
     specialty: '',
     city: '',
     date_of_birth: '' as string,
@@ -64,7 +63,7 @@ const Settings = () => {
         full_name: profile.full_name || '',
         phone: profile.phone || '',
         hospital_name: profile.hospital_name || '',
-        hospital: (profile as any).hospital || '',
+        
         specialty: profile.specialty || '',
         city: profile.city || '',
         date_of_birth: (profile as any).date_of_birth || '',
@@ -147,7 +146,6 @@ const Settings = () => {
 
     if (profile.role === 'clinician') {
       updateData.hospital_name = form.hospital_name;
-      updateData.hospital = form.hospital;
       updateData.specialty = form.specialty;
       if (form.full_name && form.hospital_name && form.specialty && form.phone) {
         updateData.verified = true;
@@ -262,10 +260,6 @@ const Settings = () => {
                   <Label htmlFor="specialty" className="font-semibold">Specialty</Label>
                   <Input id="specialty" value={form.specialty} onChange={e => setForm(f => ({ ...f, specialty: e.target.value }))} />
                 </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="hospital" className="font-semibold">Hospital / Institution</Label>
-                <Input id="hospital" value={form.hospital} onChange={e => setForm(f => ({ ...f, hospital: e.target.value }))} placeholder="Institution name (used on reports)" />
               </div>
               {!profile.verified && (
                 <div className="rounded-xl border border-warning/30 bg-warning/5 p-4 flex gap-3">

@@ -286,7 +286,7 @@ const FindSpecialist = () => {
                   )}
                   {s.distance_km != null && (
                     <p className="text-xs text-muted-foreground mt-2 font-semibold">
-                      📍 {s.distance_km.toFixed(1)} km away
+                      {s.distance_km.toFixed(1)} km away
                     </p>
                   )}
                 </motion.div>
