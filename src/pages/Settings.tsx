@@ -262,10 +262,6 @@ const Settings = () => {
                   <Input id="specialty" value={form.specialty} onChange={e => setForm(f => ({ ...f, specialty: e.target.value }))} />
                 </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="hospital" className="font-semibold">Hospital / Institution</Label>
-                <Input id="hospital" value={form.hospital} onChange={e => setForm(f => ({ ...f, hospital: e.target.value }))} placeholder="Institution name (used on reports)" />
-              </div>
               {!profile.verified && (
                 <div className="rounded-xl border border-warning/30 bg-warning/5 p-4 flex gap-3">
                   <AlertCircle className="h-5 w-5 text-warning flex-shrink-0 mt-0.5" />
