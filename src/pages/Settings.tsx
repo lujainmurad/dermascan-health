@@ -146,7 +146,6 @@ const Settings = () => {
 
     if (profile.role === 'clinician') {
       updateData.hospital_name = form.hospital_name;
-      updateData.hospital = form.hospital;
       updateData.specialty = form.specialty;
       if (form.full_name && form.hospital_name && form.specialty && form.phone) {
         updateData.verified = true;
