@@ -153,6 +153,8 @@ const ClinicianAnalyze = () => {
 
       const headers: Record<string, string> = {
         'X-Body-Site': bodySite || 'unknown',
+        'X-Lesion-Duration': lesionDuration || 'unknown',
+        'X-Skin-History': skinHistory || 'unknown',
       };
 
       if (profile?.full_name) headers['X-Clinician-Name'] = profile.full_name;
