@@ -153,7 +153,7 @@ const PatientAssistant = () => {
     } else {
       addMessage({
         role: 'assistant',
-        content: "I'm here to help with your skin health! Here's what I can do:\n\n- 📸 **Analyze a photo** of a skin concern\n- 🔍 **Find specialists** near you\n- 📅 **Book an appointment** with a dermatologist\n\nTry uploading a photo or ask me about any of these options!",
+        content: "I'm here to help with your skin health! Here's what I can do:\n\n- **Analyze a photo** of a skin concern\n- **Find specialists** near you\n- **Book an appointment** with a dermatologist\n\nTry uploading a photo or ask me about any of these options!",
       });
     }
     setIsTyping(false);
