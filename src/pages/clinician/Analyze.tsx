@@ -397,6 +397,36 @@ const ClinicianAnalyze = () => {
           </Select>
         </div>
 
+        <div className="clinical-card p-4 mb-4 grid sm:grid-cols-2 gap-4">
+          <div>
+            <Label htmlFor="lesionDuration" className="text-sm font-semibold mb-2 block">Lesion Duration</Label>
+            <Select value={lesionDuration} onValueChange={setLesionDuration}>
+              <SelectTrigger id="lesionDuration"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="unknown">Unknown</SelectItem>
+                <SelectItem value="lt_3m">Less than 3 months</SelectItem>
+                <SelectItem value="3_6m">3–6 months</SelectItem>
+                <SelectItem value="6_12m">6–12 months</SelectItem>
+                <SelectItem value="1_2y">1–2 years</SelectItem>
+                <SelectItem value="gt_2y">More than 2 years</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label htmlFor="skinHistory" className="text-sm font-semibold mb-2 block">Prior Skin Cancer History</Label>
+            <Select value={skinHistory} onValueChange={setSkinHistory}>
+              <SelectTrigger id="skinHistory"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none_known">None known</SelectItem>
+                <SelectItem value="prev_melanoma">Previous melanoma</SelectItem>
+                <SelectItem value="prev_bcc_scc">Previous BCC/SCC</SelectItem>
+                <SelectItem value="family_melanoma">Family history of melanoma</SelectItem>
+                <SelectItem value="unknown">Unknown</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
         <div className="clinical-card p-6">
           {!preview ? (
             <div className="border-2 border-dashed border-border rounded-xl p-12 text-center cursor-pointer hover:border-primary/50 transition-colors"
