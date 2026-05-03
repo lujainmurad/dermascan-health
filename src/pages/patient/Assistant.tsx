@@ -29,7 +29,7 @@ const PatientAssistant = () => {
     {
       id: '1',
       role: 'assistant',
-      content: `Hi${profile?.full_name ? ` ${profile.full_name}` : ''}! 👋 I'm your DermaScan assistant. I can help you:\n\n- **Analyze a skin concern** — just upload or capture an image\n- **Find a specialist** near you\n- **Book an appointment** with a dermatologist\n\nHow can I help you today?`,
+      content: `Hi${profile?.full_name ? ` ${profile.full_name}` : ''}! I'm your DermaScan assistant. I can help you:\n\n- **Analyze a skin concern** — just upload or capture an image\n- **Find a specialist** near you\n- **Book an appointment** with a dermatologist\n\nHow can I help you today?`,
     },
   ]);
   const [input, setInput] = useState('');

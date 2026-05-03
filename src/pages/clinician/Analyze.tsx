@@ -509,7 +509,7 @@ const ClinicianAnalyze = () => {
 
                   {saved && (
                     <div className="text-center text-sm text-success font-medium py-2">
-                      ✓ Case saved successfully
+                      Case saved successfully
                     </div>
                   )}
 

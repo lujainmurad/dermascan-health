@@ -55,7 +55,7 @@ const PatientDashboard = () => {
     <AppLayout>
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
         <h1 className="text-2xl font-bold text-foreground mb-1 tracking-tight">
-          Hey{profile?.full_name ? `, ${profile.full_name}` : ''} 👋
+          Hey{profile?.full_name ? `, ${profile.full_name}` : ''}
         </h1>
         <p className="text-muted-foreground text-sm mb-8">What would you like to do today?</p>
       </motion.div>
